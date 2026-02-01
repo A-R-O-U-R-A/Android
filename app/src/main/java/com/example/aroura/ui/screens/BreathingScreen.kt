@@ -1,9 +1,12 @@
 package com.example.aroura.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -30,163 +33,215 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.aroura.ui.theme.OffWhite
+import com.example.aroura.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
+/**
+ * Breathing Screen - Premium Redesign
+ * 
+ * Features:
+ * - Triangular breathing with smooth dot movement
+ * - Entrance animations for controls
+ * - Premium control buttons with scale feedback
+ * - Breathing glow effect
+ */
 @Composable
 fun BreathingScreen(onClose: () -> Unit) {
-    // 1. Fullscreen Background
-    // Muted teal, Soft green, Light cyan gradient
+    // Premium calming gradient
     val backgroundBrush = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF4DB6AC), // Pastel Teal / Muted Teal
-            Color(0xFFA5D6A7), // Soft Green
-            Color(0xFFE0F7FA)  // Light Cyan
+            Color(0xFF2A4A4F), // Deep teal
+            Color(0xFF3D6B6B), // Muted teal
+            Color(0xFF4A8080)  // Lighter teal
         )
     )
 
     var isPlaying by remember { mutableStateOf(true) }
     var isFavorite by remember { mutableStateOf(false) }
     var isSoundOn by remember { mutableStateOf(true) }
+    var visible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) { visible = true }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(backgroundBrush)
     ) {
-        // 2. Close Button (Top Left)
+        // Subtle radial glow overlay
         Box(
             modifier = Modifier
-                .padding(top = 48.dp, start = 24.dp)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.2f))
-                .clickable { onClose() }
-                .align(Alignment.TopStart),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MutedTeal.copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        radius = 600f
+                    )
+                )
+        )
+        
+        // Close Button with entrance animation
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(300)),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 48.dp, start = ArouraSpacing.screenHorizontal.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close",
-                tint = OffWhite,
-                modifier = Modifier.size(20.dp)
+            PremiumControlButton(
+                icon = Icons.Default.Close,
+                isSelected = false,
+                size = 44.dp,
+                onClick = onClose
             )
         }
 
-        // 3. Central Breathing Visual (MAIN FOCUS) & 4. Breathing Text
-        BreathingAnimation(isPlaying = isPlaying)
-
-        // 5. Bottom Controls (Centered)
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 60.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(32.dp)
+        // Central Breathing Visual
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(500, delayMillis = 100)) + scaleIn(
+                initialScale = 0.9f,
+                animationSpec = tween(500, delayMillis = 100, easing = EaseOutCubic)
+            ),
+            modifier = Modifier.fillMaxSize()
         ) {
-            // Favorite Button
-            ControlCircleButton(
-                icon = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                isSelected = isFavorite,
-                onClick = { isFavorite = !isFavorite }
-            )
+            BreathingAnimation(isPlaying = isPlaying)
+        }
 
-            // Pause / Play (Center, Larger)
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.2f))
-                    .clickable { isPlaying = !isPlaying },
-                contentAlignment = Alignment.Center
+        // Bottom Controls with staggered entrance
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(400, delayMillis = 300)) + slideInVertically(
+                initialOffsetY = { 50 },
+                animationSpec = tween(400, delayMillis = 300, easing = EaseOutCubic)
+            ),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Row(
+                modifier = Modifier.padding(bottom = 60.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.xl.dp)
             ) {
-                Icon(
-                    imageVector = if (isPlaying) CustomIcons.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = OffWhite,
-                    modifier = Modifier.size(40.dp)
+                // Favorite Button
+                PremiumControlButton(
+                    icon = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                    isSelected = isFavorite,
+                    onClick = { isFavorite = !isFavorite }
+                )
+
+                // Play/Pause (Center, Larger)
+                PremiumControlButton(
+                    icon = if (isPlaying) CustomIcons.Pause else Icons.Default.PlayArrow,
+                    isSelected = false,
+                    size = 80.dp,
+                    iconSize = 40.dp,
+                    onClick = { isPlaying = !isPlaying }
+                )
+
+                // Sound Toggle
+                PremiumControlButton(
+                    icon = if (isSoundOn) SoundOnIcon() else SoundOffIcon(),
+                    isSelected = isSoundOn,
+                    onClick = { isSoundOn = !isSoundOn }
                 )
             }
-
-            // Sound Toggle
-            ControlCircleButton(
-                icon = if (isSoundOn) SoundOnIcon() else SoundOffIcon(),
-                isSelected = isSoundOn,
-                onClick = { isSoundOn = !isSoundOn }
-            )
         }
     }
 }
 
 @Composable
-fun ControlCircleButton(
+private fun PremiumControlButton(
     icon: ImageVector,
     isSelected: Boolean,
+    size: androidx.compose.ui.unit.Dp = 56.dp,
+    iconSize: androidx.compose.ui.unit.Dp = 24.dp,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "controlScale"
+    )
+    
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 0.35f else 0.2f,
+        animationSpec = tween(200),
+        label = "bgAlpha"
+    )
+
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(size)
+            .scale(scale)
             .clip(CircleShape)
-            .background(Color.Black.copy(alpha = 0.2f))
-            .clickable { onClick() },
+            .background(Color.Black.copy(alpha = bgAlpha))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = OffWhite,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
 
 @Composable
 fun BreathingAnimation(isPlaying: Boolean) {
-    // Phase State
     var currentPhaseText by remember { mutableStateOf("Breathe In") }
-    
-    // Angle: 0f to 360f
-    // We treat -90deg (Top) as 0 progress for visual simplicity in logic, or just rotate the canvas.
-    // Let's say:
-    // Dot 1: Top (Start) -> 0 degrees (visually -90)
-    // Dot 2: 120 degrees
-    // Dot 3: 240 degrees
-    
     val angleAnim = remember { Animatable(0f) }
 
-    // Loop Logic
+    // Breathing glow animation
+    val infiniteTransition = rememberInfiniteTransition(label = "breathingGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glow"
+    )
+
+    // Animation Loop
     LaunchedEffect(isPlaying) {
         if (isPlaying) {
             while (true) {
-                // Phase 1: Inhale (Dot 1 -> Dot 2)
-                // 0 -> 120
+                // Phase 1: Inhale (0 -> 120)
                 currentPhaseText = "Breathe In"
                 angleAnim.animateTo(
                     targetValue = 120f,
                     animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
                 )
 
-                // Phase 2: Hold (Dot 2 -> Dot 3)
-                // 120 -> 240
+                // Phase 2: Hold (120 -> 240)
                 currentPhaseText = "Hold"
                 angleAnim.animateTo(
                     targetValue = 240f,
                     animationSpec = tween(durationMillis = 4000, easing = LinearEasing)
                 )
 
-                // Phase 3: Exhale (Dot 3 -> Dot 1)
-                // 240 -> 360
+                // Phase 3: Exhale (240 -> 360)
                 currentPhaseText = "Breathe Out"
                 angleAnim.animateTo(
                     targetValue = 360f,
                     animationSpec = tween(durationMillis = 6000, easing = LinearEasing)
                 )
 
-                // Reset instantly to 0 to loop
+                // Reset
                 angleAnim.snapTo(0f)
             }
         }
@@ -200,60 +255,86 @@ fun BreathingAnimation(isPlaying: Boolean) {
         
         // Static Circle & Fixed Dots
         Canvas(modifier = Modifier.size(circleRadius * 2)) {
-            // 1. Static Ring
+            // Outer glow ring
             drawCircle(
-                color = OffWhite.copy(alpha = 0.3f),
+                color = OffWhite.copy(alpha = glowAlpha * 0.3f),
+                style = Stroke(width = 6.dp.toPx())
+            )
+            
+            // Static Ring
+            drawCircle(
+                color = OffWhite.copy(alpha = 0.35f),
                 style = Stroke(width = 2.dp.toPx())
             )
             
-            // 2. Fixed Dots (at 0, 120, 240 degrees)
-            // 0 degrees is Top (-90 in trig)
+            // Fixed Dots at 0, 120, 240 degrees
             val phases = listOf(0f, 120f, 240f)
             val r = size.minDimension / 2
             
             phases.forEach { deg ->
-                val rad = Math.toRadians(deg.toDouble() - 90.0) // Shift -90 to start at top
+                val rad = Math.toRadians(deg.toDouble() - 90.0)
                 val x = center.x + r * cos(rad).toFloat()
                 val y = center.y + r * sin(rad).toFloat()
                 
+                // Dot glow
                 drawCircle(
-                    color = OffWhite.copy(alpha = 0.6f),
-                    radius = 4.dp.toPx(),
+                    color = OffWhite.copy(alpha = 0.25f),
+                    radius = 8.dp.toPx(),
+                    center = Offset(x, y)
+                )
+                // Dot core
+                drawCircle(
+                    color = OffWhite.copy(alpha = 0.7f),
+                    radius = 5.dp.toPx(),
                     center = Offset(x, y)
                 )
             }
         }
 
-        // Moving Dot
+        // Moving Dot with glow
         Canvas(modifier = Modifier.size(circleRadius * 2)) {
             val r = size.minDimension / 2
-            val currentDeg = angleAnim.value - 90f // Shift -90 to start at top
+            val currentDeg = angleAnim.value - 90f
             val rad = Math.toRadians(currentDeg.toDouble())
             
             val x = center.x + r * cos(rad).toFloat()
             val y = center.y + r * sin(rad).toFloat()
 
-            // Glow Effect for moving dot
+            // Outer glow
             drawCircle(
-                color = OffWhite.copy(alpha = 0.4f),
+                color = OffWhite.copy(alpha = glowAlpha),
+                radius = 18.dp.toPx(),
+                center = Offset(x, y)
+            )
+            // Inner glow
+            drawCircle(
+                color = OffWhite.copy(alpha = 0.5f),
                 radius = 12.dp.toPx(),
                 center = Offset(x, y)
             )
-            // Core of moving dot
+            // Core
             drawCircle(
                 color = OffWhite,
-                radius = 6.dp.toPx(),
+                radius = 7.dp.toPx(),
                 center = Offset(x, y)
             )
         }
 
-        // Center Text
-        Text(
-            text = currentPhaseText,
-            style = MaterialTheme.typography.headlineLarge,
-            color = OffWhite,
-            fontWeight = FontWeight.Light
-        )
+        // Center Text with crossfade
+        AnimatedContent(
+            targetState = currentPhaseText,
+            transitionSpec = {
+                fadeIn(tween(300)).togetherWith(fadeOut(tween(200)))
+            },
+            label = "phaseText"
+        ) { phase ->
+            Text(
+                text = phase,
+                style = MaterialTheme.typography.headlineLarge,
+                color = OffWhite,
+                fontWeight = FontWeight.Light
+            )
+        }
     }
 }
 
@@ -284,4 +365,4 @@ object CustomIcons {
 @Composable
 fun SoundOnIcon(): ImageVector = Icons.Default.Notifications
 @Composable
-fun SoundOffIcon(): ImageVector = Icons.Default.Close // Fallback since NotificationsOff is missing
+fun SoundOffIcon(): ImageVector = Icons.Default.Close

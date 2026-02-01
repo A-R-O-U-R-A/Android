@@ -1,20 +1,26 @@
 package com.example.aroura.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -24,138 +30,226 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.theme.*
 import kotlin.math.cos
 import kotlin.math.sin
 
+/**
+ * Chat Selection Screen - Premium Redesign
+ * 
+ * Features:
+ * - Calm, spacious layout
+ * - Subtle floating animations on cards
+ * - Premium glass-morphism cards
+ * - Gentle visual hierarchy
+ */
 @Composable
 fun ChatSelectionScreen(onChatSelected: (String) -> Unit, onProfileClick: () -> Unit) {
+    // Staggered entrance animations
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = ArouraSpacing.screenHorizontal.dp)
+            .systemBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
 
         // Header with Profile
-        Box(modifier = Modifier.fillMaxWidth()) {
-            IconButton(
-                onClick = onProfileClick,
-                modifier = Modifier.align(Alignment.CenterStart)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ArouraProfileIcon(onClick = onProfileClick)
+            
+            // Subtle mode indicator
+            Surface(
+                color = DeepSurface.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(DeepSurface, CircleShape)
-                        .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(16.dp))
-                }
+                Text(
+                    text = "Chat",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xxl.dp))
+
+        // Title with animation
+        AnimatedVisibility(
+            visible = visible,
+            enter = fadeIn(tween(600)) + slideInVertically(
+                initialOffsetY = { 20 },
+                animationSpec = tween(600, easing = EaseOutCubic)
+            )
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Who would you like",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = OffWhite,
+                    fontWeight = FontWeight.Light,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "to talk to?",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = OffWhite,
+                    fontWeight = FontWeight.Light,
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
-        Text(
-            text = "Who do you feel like talking to?",
-            style = MaterialTheme.typography.headlineSmall,
-            color = OffWhite,
-            textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Light
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
 
         // Cards Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
         ) {
             // Counselor Card
-            ChatOptionCard(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(0.7f),
-                title = "AI Mental Health\nCOUNSELOR",
-                description = "Your gentle guide,\nhere to support you.",
-                buttonText = "Talk to Counselor",
-                onClick = { onChatSelected("Counselor") }
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(600, delayMillis = 150)) + slideInVertically(
+                    initialOffsetY = { 40 },
+                    animationSpec = tween(600, delayMillis = 150, easing = EaseOutCubic)
+                ),
+                modifier = Modifier.weight(1f)
             ) {
-                // Moon Visual
-                MoonVisual()
+                PremiumChatOptionCard(
+                    title = "Counselor",
+                    subtitle = "Professional Support",
+                    description = "A gentle guide for\nemotional wellbeing",
+                    accentColor = SoftBlue,
+                    onClick = { onChatSelected("Counselor") }
+                ) {
+                    MoonVisualPremium()
+                }
             }
 
             // Companion Card
-            ChatOptionCard(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(0.7f),
-                title = "AI Companion\nBUDDY / BEST FRIEND",
-                description = "Your friendly AI buddy,\nhere to chat and listen.",
-                buttonText = "Talk to Companion",
-                onClick = { onChatSelected("Companion") }
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(600, delayMillis = 250)) + slideInVertically(
+                    initialOffsetY = { 40 },
+                    animationSpec = tween(600, delayMillis = 250, easing = EaseOutCubic)
+                ),
+                modifier = Modifier.weight(1f)
             ) {
-                // Star Visual
-                StarVisual()
+                PremiumChatOptionCard(
+                    title = "Companion",
+                    subtitle = "Friendly Chat",
+                    description = "A caring friend\nwho listens",
+                    accentColor = CalmingPeach,
+                    onClick = { onChatSelected("Companion") }
+                ) {
+                    StarVisualPremium()
+                }
             }
         }
         
-        Spacer(modifier = Modifier.height(100.dp))
+        Spacer(modifier = Modifier.height(120.dp))
     }
 }
 
 @Composable
-fun ChatOptionCard(
-    modifier: Modifier,
+private fun PremiumChatOptionCard(
     title: String,
+    subtitle: String,
     description: String,
-    buttonText: String,
+    accentColor: Color,
     onClick: () -> Unit,
     visualContent: @Composable () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "cardScale"
+    )
+    
+    // Subtle floating animation
+    val infiniteTransition = rememberInfiniteTransition(label = "float")
+    val floatOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatOffset"
+    )
+
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxHeight(0.75f)
+            .scale(scale)
+            .offset(y = floatOffset.dp)
+            .clip(RoundedCornerShape(ArouraSpacing.cardRadius.dp))
             .background(
-                brush = Brush.verticalGradient(
+                Brush.verticalGradient(
                     colors = listOf(
-                        DeepSurface.copy(alpha = 0.4f),
+                        accentColor.copy(alpha = 0.08f),
                         DeepSurface.copy(alpha = 0.6f)
                     )
-                ),
-                shape = RoundedCornerShape(32.dp)
+                )
             )
             .border(
                 width = 1.dp,
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.1f),
+                        accentColor.copy(alpha = 0.3f),
                         Color.Transparent
                     )
                 ),
-                shape = RoundedCornerShape(32.dp)
+                shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp)
             )
-            .padding(16.dp)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(ArouraSpacing.lg.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Title
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = OffWhite,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            // Header
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = subtitle.uppercase(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accentColor,
+                    letterSpacing = 1.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = OffWhite,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
 
             // Visual
             Box(
-                modifier = Modifier.size(120.dp),
+                modifier = Modifier.size(100.dp),
                 contentAlignment = Alignment.Center
             ) {
                 visualContent()
@@ -167,51 +261,71 @@ fun ChatOptionCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = TextDarkSecondary,
                 textAlign = TextAlign.Center,
-                fontSize = 12.sp
+                lineHeight = 18.sp
             )
 
             // Button
-            Button(
-                onClick = onClick,
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White.copy(alpha = 0.15f),
-                    contentColor = OffWhite
-                ),
-                shape = RoundedCornerShape(20.dp),
-                contentPadding = PaddingValues(0.dp)
+                    .height(44.dp),
+                color = accentColor.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(22.dp)
             ) {
-                Text(
-                    text = buttonText,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Start Chat",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = accentColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun MoonVisual() {
-    Canvas(modifier = Modifier.size(100.dp)) {
+private fun MoonVisualPremium() {
+    val infiniteTransition = rememberInfiniteTransition(label = "moonGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+    
+    Canvas(modifier = Modifier.size(80.dp)) {
         // Outer Glow
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFF90CAF9).copy(alpha = 0.3f),
+                    SoftBlue.copy(alpha = glowAlpha),
                     Color.Transparent
                 )
             ),
-            radius = size.width / 1.5f
+            radius = size.width / 1.3f
         )
         // Moon Body
         drawCircle(
             brush = Brush.linearGradient(
                 colors = listOf(
                     Color(0xFFE3F2FD),
-                    Color(0xFF42A5F5)
+                    SoftBlue
                 ),
                 start = Offset(0f, 0f),
                 end = Offset(size.width, size.height)
@@ -219,33 +333,54 @@ fun MoonVisual() {
             radius = size.width / 3f
         )
         // Sparkles
-        drawCircle(color = Color.White, radius = 4f, center = Offset(10f, 20f))
-        drawCircle(color = Color.White, radius = 3f, center = Offset(90f, 80f))
+        drawCircle(color = Color.White.copy(alpha = 0.8f), radius = 3f, center = Offset(12f, 18f))
+        drawCircle(color = Color.White.copy(alpha = 0.6f), radius = 2f, center = Offset(70f, 65f))
+        drawCircle(color = Color.White.copy(alpha = 0.4f), radius = 2f, center = Offset(55f, 20f))
     }
 }
 
 @Composable
-fun StarVisual() {
-    Canvas(modifier = Modifier.size(100.dp)) {
+private fun StarVisualPremium() {
+    val infiniteTransition = rememberInfiniteTransition(label = "starGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "starGlowAlpha"
+    )
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "starRotation"
+    )
+
+    Canvas(modifier = Modifier.size(80.dp)) {
         // Glow
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFFFFE082).copy(alpha = 0.3f),
+                    CalmingPeach.copy(alpha = glowAlpha),
                     Color.Transparent
                 )
             ),
-            radius = size.width / 1.5f
+            radius = size.width / 1.3f
         )
 
         val cx = size.width / 2
         val cy = size.height / 2
-        val outerRadius = size.width / 2.5f
-        val innerRadius = outerRadius / 2f
+        val outerRadius = size.width / 2.8f
+        val innerRadius = outerRadius / 2.2f
         
         val starPath = Path().apply {
-            var angle = -Math.PI / 2 // Start at top
-            val step = Math.PI / 5 // 5 points
+            var angle = -Math.PI / 2 + Math.toRadians(rotation.toDouble())
+            val step = Math.PI / 5
             
             moveTo(
                 (cx + outerRadius * cos(angle)).toFloat(),
@@ -267,32 +402,23 @@ fun StarVisual() {
             close()
         }
 
-        // Draw Soft Rounded Star (simulated by using CornerPathEffect if possible, but standard draw is fine)
         drawPath(
             path = starPath,
             brush = Brush.linearGradient(
                 colors = listOf(
-                    Color(0xFFFFF59D),
-                    Color(0xFFFFB74D)
+                    Color(0xFFFFF8E1),
+                    CalmingPeach
                 ),
                 start = Offset(0f, 0f),
                 end = Offset(size.width, size.height)
             )
         )
-
-        // Cute Face
-        // Eyes
-        drawCircle(Color.Black.copy(alpha = 0.7f), radius = 4f, center = Offset(cx - 12f, cy - 5f))
-        drawCircle(Color.Black.copy(alpha = 0.7f), radius = 4f, center = Offset(cx + 12f, cy - 5f))
-        // Mouth
-        drawArc(
-            color = Color.Black.copy(alpha = 0.7f),
-            startAngle = 0f,
-            sweepAngle = 180f,
-            useCenter = false,
-            topLeft = Offset(cx - 8f, cy - 2f),
-            size = androidx.compose.ui.geometry.Size(16f, 10f),
-            style = Stroke(width = 3f)
-        )
     }
 }
+
+// Keep legacy functions for compatibility but mark private
+@Composable
+private fun MoonVisual() = MoonVisualPremium()
+
+@Composable
+private fun StarVisual() = StarVisualPremium()

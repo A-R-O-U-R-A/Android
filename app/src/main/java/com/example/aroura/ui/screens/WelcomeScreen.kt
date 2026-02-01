@@ -2,187 +2,219 @@ package com.example.aroura.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.aroura.ui.components.AdvancedAuroraBackground
+import com.example.aroura.ui.components.ArouraBackground
+import com.example.aroura.ui.components.ArouraPill
+import com.example.aroura.ui.components.ArouraPrimaryButton
 import com.example.aroura.ui.theme.*
 import kotlinx.coroutines.delay
 
+/**
+ * Welcome / Get Started Screen
+ * 
+ * First impression screen - calm, minimal, inviting
+ * Features:
+ * - Staggered entrance animation
+ * - Subtle breathing effect on title
+ * - Premium aurora background
+ * - Smooth CTA transition
+ */
 @Composable
 fun WelcomeScreen(onGetStarted: () -> Unit) {
-    // Staggered Entry Animation States
-    var isVisible by remember { mutableStateOf(false) }
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ANIMATION STATES
+    // ═══════════════════════════════════════════════════════════════════════════
     
+    var showPill by remember { mutableStateOf(false) }
+    var showTitle by remember { mutableStateOf(false) }
+    var showTagline by remember { mutableStateOf(false) }
+    var showButton by remember { mutableStateOf(false) }
+    var showFooter by remember { mutableStateOf(false) }
+    
+    // Staggered entrance sequence
     LaunchedEffect(Unit) {
+        delay(400)
+        showPill = true
+        delay(200)
+        showTitle = true
         delay(300)
-        isVisible = true
+        showTagline = true
+        delay(400)
+        showButton = true
+        delay(200)
+        showFooter = true
     }
-
-    // Breathing Animation for Title
+    
+    // Title breathing animation (very subtle)
     val infiniteTransition = rememberInfiniteTransition(label = "breathing")
-    val scale by infiniteTransition.animateFloat(
+    val titleScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.02f, // Very subtle
+        targetValue = 1.015f,
         animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
+            animation = tween(4500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "titleScale"
+        label = "titleBreathing"
+    )
+    
+    val titleAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "titleAlphaBreathing"
     )
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UI LAYOUT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
     Box(modifier = Modifier.fillMaxSize()) {
-        AdvancedAuroraBackground()
-
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn(animationSpec = tween(1000)) + slideInVertically(
-                animationSpec = tween(1000, easing = EaseOutExpo),
-                initialOffsetY = { 50 }
-            ),
-            modifier = Modifier.fillMaxSize()
+        // Premium Aurora Background
+        ArouraBackground()
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = ArouraSpacing.screenHorizontal.dp)
+                .systemBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(32.dp)
-                    .systemBarsPadding(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Spacer(modifier = Modifier.weight(0.8f))
-
-                // Mentall Wellness Pill
-                Surface(
-                    color = MutedTeal.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(50),
-                    modifier = Modifier.padding(bottom = 24.dp)
-                ) {
-                    Text(
-                        text = "MENTAL WELLNESS",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MutedTeal,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        letterSpacing = 2.sp,
-                        fontWeight = FontWeight.Bold
+            Spacer(modifier = Modifier.weight(0.35f))
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // MENTAL WELLNESS PILL
+            // ═══════════════════════════════════════════════════════════════════
+            
+            AnimatedVisibility(
+                visible = showPill,
+                enter = fadeIn(tween(800)) + scaleIn(
+                    initialScale = 0.8f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
                     )
-                }
-
-                // Breathing Title
+                )
+            ) {
+                ArouraPill(
+                    text = "Mental Wellness",
+                    modifier = Modifier.padding(bottom = 28.dp)
+                )
+            }
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // TITLE: A.R.O.U.R.A
+            // ═══════════════════════════════════════════════════════════════════
+            
+            AnimatedVisibility(
+                visible = showTitle,
+                enter = fadeIn(tween(1000, easing = FastOutSlowInEasing)) + 
+                        slideInVertically(
+                            initialOffsetY = { 40 },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        )
+            ) {
                 Text(
                     text = "A.R.O.U.R.A",
                     style = MaterialTheme.typography.displayMedium,
                     color = OffWhite,
                     textAlign = TextAlign.Center,
                     fontWeight = FontWeight.Light,
-                    letterSpacing = 4.sp,
-                    modifier = Modifier.scale(scale)
+                    letterSpacing = 6.sp,
+                    modifier = Modifier
+                        .scale(titleScale)
+                        .alpha(titleAlpha)
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Built to quiet the noise\ninside your head.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextDarkSecondary,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 32.sp
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Animated Button
-                PulsingButton(
-                    text = "Get Started",
-                    onClick = onGetStarted
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Text(
-                    text = "Private • Secure • Safe",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextDarkSecondary.copy(alpha = 0.5f)
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
             }
-        }
-    }
-}
-
-@Composable
-fun PulsingButton(text: String, onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    // Press Scale Animation
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "buttonScale"
-    )
-    
-    // Glow Pulse Animation (Idle)
-    val infiniteTransition = rememberInfiniteTransition(label = "glow")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 0.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
-    )
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .scale(scale)
-    ) {
-        // Glow Shadow (Using graphicsLayer alpha instead of blur for compatibility)
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    this.alpha = glowAlpha
-                    this.scaleX = 1.05f
-                    this.scaleY = 1.1f
-                },
-            color = MutedTeal,
-            shape = RoundedCornerShape(32.dp)
-        ) {}
-
-        Button(
-            onClick = onClick,
-            modifier = Modifier.fillMaxSize(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MutedTeal,
-                contentColor = MidnightCharcoal
-            ),
-            shape = RoundedCornerShape(32.dp),
-            interactionSource = interactionSource,
-            elevation = ButtonDefaults.buttonElevation(0.dp)
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // TAGLINE
+            // ═══════════════════════════════════════════════════════════════════
+            
+            AnimatedVisibility(
+                visible = showTagline,
+                enter = fadeIn(tween(900, easing = FastOutSlowInEasing)) +
+                        slideInVertically(
+                            initialOffsetY = { 30 },
+                            animationSpec = tween(900, easing = FastOutSlowInEasing)
+                        )
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Built to quiet the noise",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextDarkSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "inside your head.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = TextDarkSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.weight(0.55f))
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // CTA BUTTON
+            // ═══════════════════════════════════════════════════════════════════
+            
+            AnimatedVisibility(
+                visible = showButton,
+                enter = fadeIn(tween(800)) + slideInVertically(
+                    initialOffsetY = { 60 },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+            ) {
+                ArouraPrimaryButton(
+                    text = "Get Started",
+                    onClick = onGetStarted,
+                    modifier = Modifier.padding(horizontal = ArouraSpacing.md.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            // ═══════════════════════════════════════════════════════════════════
+            // FOOTER
+            // ═══════════════════════════════════════════════════════════════════
+            
+            AnimatedVisibility(
+                visible = showFooter,
+                enter = fadeIn(tween(600))
+            ) {
+                Text(
+                    text = "Private  •  Secure  •  Safe",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextDarkTertiary,
+                    letterSpacing = 1.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(ArouraSpacing.xxl.dp))
         }
     }
 }

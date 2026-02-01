@@ -1,9 +1,13 @@
 package com.example.aroura.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -27,16 +32,29 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.aroura.ui.components.AdvancedAuroraBackground
+import com.example.aroura.ui.components.ArouraBackground
+import com.example.aroura.ui.components.ArouraProfileIcon
+import com.example.aroura.ui.components.ArouraCard
+import com.example.aroura.ui.components.ArouraSectionTitle
 import com.example.aroura.ui.theme.*
 
+/**
+ * Home Screen - Main Entry Point
+ * 
+ * Premium redesign with:
+ * - Consistent header with unified profile icon
+ * - Calm morning/evening greeting
+ * - Smooth animated navigation bar
+ * - Premium card layouts
+ * - Proper alignment throughout
+ */
 @Composable
 fun HomeScreen(onNavigateToChat: () -> Unit) {
     var selectedTab by remember { mutableIntStateOf(0) }
     
     // Navigation States
     var chatScreenState by remember { mutableStateOf("selection") }
-    var chatMode by remember { mutableStateOf("Counselor") } // Added State
+    var chatMode by remember { mutableStateOf("Counselor") }
     
     // Calm States
     var calmNavigationState by remember { mutableStateOf("list") }
@@ -59,53 +77,55 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
     var showGroundingScreen by remember { mutableStateOf(false) }
     var showPanicScreen by remember { mutableStateOf(false) }
 
-    // Helper to switch to chat tab
+    // Helpers
     val navigateToChatTab = {
         selectedTab = 1
         chatScreenState = "selection"
     }
     
-    // Helper to switch to calm tab
     val navigateToCalmTab = {
         selectedTab = 2
         calmNavigationState = "list"
     }
 
-    // Helper to switch to support tab (for panic)
     val navigateToSupportTab = {
         selectedTab = 4
         supportNavigationState = "menu"
     }
+    
+    val openProfile = {
+        showProfile = true
+        profileNavigationState = "menu"
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AdvancedAuroraBackground()
+        ArouraBackground()
 
         if (showPanicScreen) {
-             // Fullscreen Panic Overlay (Highest Priority)
-             Box(modifier = Modifier.fillMaxSize().zIndex(10f)) {
-                 PanicScreen(
-                     onClose = { showPanicScreen = false },
-                     onNavigateToBreathing = {
-                         showPanicScreen = false
-                         showBreathingScreen = true
-                     }
-                 )
-             }
+            Box(modifier = Modifier.fillMaxSize().zIndex(10f)) {
+                PanicScreen(
+                    onClose = { showPanicScreen = false },
+                    onNavigateToBreathing = {
+                        showPanicScreen = false
+                        showBreathingScreen = true
+                    }
+                )
+            }
         } else if (showBreathingScreen) {
-             Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
-                 BreathingScreen(onClose = { showBreathingScreen = false })
-             }
+            Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
+                BreathingScreen(onClose = { showBreathingScreen = false })
+            }
         } else if (showGroundingScreen) {
             Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
                 GroundingScreen(onBack = { showGroundingScreen = false })
             }
         } else if (showProfile) {
             Box(modifier = Modifier.fillMaxSize().zIndex(8f)) {
-                // Profile Navigation
                 when (profileNavigationState) {
                     "menu" -> ProfileScreen(
                         onBack = { showProfile = false },
-                        onNavigate = { dest -> profileNavigationState = dest }
+                        onNavigate = { dest -> profileNavigationState = dest },
+                        onLogout = onNavigateToChat // This triggers navigation back to Welcome screen
                     )
                     "language" -> LanguageScreen(onBack = { profileNavigationState = "menu" })
                     "privacy" -> PrivacyScreen(onBack = { profileNavigationState = "menu" })
@@ -118,16 +138,15 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                 containerColor = Color.Transparent,
                 bottomBar = {
                     val hideBottomBar = (selectedTab == 1 && chatScreenState == "chatting") ||
-                                        (selectedTab == 2 && calmNavigationState == "player") ||
-                                        (selectedTab == 3 && reflectNavigationState != "menu") ||
-                                        (selectedTab == 4 && supportNavigationState != "menu")
+                            (selectedTab == 2 && calmNavigationState == "player") ||
+                            (selectedTab == 3 && reflectNavigationState != "menu") ||
+                            (selectedTab == 4 && supportNavigationState != "menu")
                     
                     if (!hideBottomBar) {
                         ArouraBottomNavigation(
                             selectedTab = selectedTab,
                             onTabSelected = { 
                                 selectedTab = it
-                                // Reset states when switching tabs
                                 if (it != 1) chatScreenState = "selection"
                                 if (it != 2) calmNavigationState = "list"
                                 if (it != 3) reflectNavigationState = "menu"
@@ -137,17 +156,17 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                     }
                 }
             ) { paddingValues ->
+                val bottomPadding = if (
+                    (selectedTab == 1 && chatScreenState == "chatting") || 
+                    (selectedTab == 2 && calmNavigationState == "player") ||
+                    (selectedTab == 3 && reflectNavigationState != "menu") ||
+                    (selectedTab == 4 && supportNavigationState != "menu")
+                ) 0.dp else paddingValues.calculateBottomPadding()
+                
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(
-                            bottom = if (
-                                (selectedTab == 1 && chatScreenState == "chatting") || 
-                                (selectedTab == 2 && calmNavigationState == "player") ||
-                                (selectedTab == 3 && reflectNavigationState != "menu") ||
-                                (selectedTab == 4 && supportNavigationState != "menu")
-                            ) 0.dp else paddingValues.calculateBottomPadding()
-                        )
+                        .padding(bottom = bottomPadding)
                 ) {
                     when(selectedTab) {
                         0 -> HomeContent(
@@ -157,10 +176,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                             onOpenBreathing = { showBreathingScreen = true },
                             onOpenGrounding = { showGroundingScreen = true },
                             onOpenPanic = { showPanicScreen = true },
-                            onProfileClick = { 
-                                showProfile = true 
-                                profileNavigationState = "menu"
-                            }
+                            onProfileClick = openProfile
                         ) 
                         1 -> {
                             if (chatScreenState == "selection") {
@@ -169,7 +185,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                                         chatMode = mode
                                         chatScreenState = "chatting" 
                                     },
-                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
+                                    onProfileClick = openProfile
                                 )
                             } else {
                                 ChatScreen(
@@ -190,7 +206,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                                         currentAudioList = items
                                         calmNavigationState = "audio_list"
                                     },
-                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
+                                    onProfileClick = openProfile
                                 )
                                 "player" -> currentMediaItem?.let { item ->
                                     CalmPlayerScreen(
@@ -220,7 +236,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                                             ReflectOption.EmotionTracker -> "tracker"
                                         }
                                     },
-                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
+                                    onProfileClick = openProfile
                                 )
                                 "mood" -> MoodCheckInScreen(onBack = { reflectNavigationState = "menu" })
                                 "journal" -> JournalScreen(
@@ -235,9 +251,9 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                         4 -> {
                             when (supportNavigationState) {
                                 "menu" -> SupportScreen(
-                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" },
+                                    onProfileClick = openProfile,
                                     onNavigate = { dest -> supportNavigationState = dest },
-                                    onOpenPanic = { showPanicScreen = true } // Add direct panic access from Support
+                                    onOpenPanic = { showPanicScreen = true }
                                 )
                                 "helplines" -> HelplineScreen(onBack = { supportNavigationState = "menu" })
                                 "psychiatrist" -> PsychiatristContactScreen(onBack = { supportNavigationState = "menu" })
@@ -252,7 +268,9 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
     }
 }
 
-// --- HOME CONTENT ---
+// ═══════════════════════════════════════════════════════════════════════════════
+// HOME CONTENT - Main scrollable content
+// ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
 fun HomeContent(
@@ -268,12 +286,15 @@ fun HomeContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = ArouraSpacing.screenHorizontal.dp)
+            .systemBarsPadding()
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
         
-        // Header
+        // ═══════════════════════════════════════════════════════════════════════
+        // HEADER - Greeting + Profile
+        // ═══════════════════════════════════════════════════════════════════════
+        
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -281,129 +302,219 @@ fun HomeContent(
         ) {
             Column {
                 Text(
-                    text = "Good Morning,", // Dynamic greeting could go here
+                    text = getGreeting(),
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextDarkSecondary
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Sarah", // Dynamic Name
+                    text = "Sarah",
                     style = MaterialTheme.typography.headlineMedium,
                     color = OffWhite,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            IconButton(onClick = onProfileClick) {
-                 Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(DeepSurface, CircleShape)
-                        .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(20.dp))
-                }
-            }
+            
+            ArouraProfileIcon(onClick = onProfileClick)
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
-        // Mood Check-in
-        Text(
-            text = "How are you feeling?",
-            style = MaterialTheme.typography.titleMedium,
-            color = OffWhite,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        MoodSelector()
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // --- MAIN ACTIONS GRID ---
+        // ═══════════════════════════════════════════════════════════════════════
+        // MOOD CHECK-IN
+        // ═══════════════════════════════════════════════════════════════════════
         
-        // 1. Instant Chat (Featured)
-        FeaturedChatCard(onClick = onNavigateToChat)
+        ArouraSectionTitle(text = "How are you feeling?")
         
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2. Bento Grid
+        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+        
+        PremiumMoodSelector()
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // FEATURED: CHAT WITH AROURA
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        PremiumChatCard(onClick = onNavigateToChat)
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // QUICK ACTIONS GRID
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        ArouraSectionTitle(text = "Quick Relief")
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+        
         Row(
-            modifier = Modifier.fillMaxWidth().height(280.dp), // Fixed height for grid alignment
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp),
+            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
         ) {
-            // Left Column (Breathing + Music)
+            // Left Column
             Column(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
             ) {
-                // Breathing (Tall)
-                HomeCard(
+                PremiumQuickCard(
                     title = "Breathe",
                     subtitle = "Relax now",
-                    icon = Icons.Default.FavoriteBorder, // Heart/Lungs
-                    color = Color(0xFF80CBC4), // Muted Teal
-                    modifier = Modifier.weight(1.5f),
+                    icon = Icons.Default.FavoriteBorder,
+                    accentColor = MutedTeal,
+                    modifier = Modifier.weight(1.4f),
                     onClick = onOpenBreathing
                 )
-                // Music (Short)
-                HomeCard(
+                PremiumQuickCard(
                     title = "Sounds",
                     subtitle = "Nature & Ambient",
                     icon = Icons.Default.PlayArrow,
-                    color = Color(0xFF9FA8DA), // Soft Indigo
+                    accentColor = CalmingLavender,
                     modifier = Modifier.weight(1f),
                     onClick = onNavigateToCalm
                 )
             }
             
-            // Right Column (Panic + Grounding)
+            // Right Column
             Column(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
             ) {
-                // Panic (Short) - High priority visual but small footprint
-                HomeCard(
+                PremiumQuickCard(
                     title = "Panic",
                     subtitle = "Emergency",
                     icon = Icons.Default.Warning,
-                    color = Color(0xFFEF9A9A), // Soft Red
+                    accentColor = GentleError,
                     modifier = Modifier.weight(0.8f),
                     onClick = onOpenPanic
                 )
-                
-                // Grounding (Tall)
-                HomeCard(
+                PremiumQuickCard(
                     title = "Grounding",
                     subtitle = "5-4-3-2-1 Tool",
-                    icon = Icons.Default.LocationOn, // Anchor/Place
-                    color = Color(0xFFA5D6A7), // Soft Green
+                    icon = Icons.Default.LocationOn,
+                    accentColor = CalmingGreen,
                     modifier = Modifier.weight(1.2f),
                     onClick = onOpenGrounding
                 )
-                 // Calm Music (Short)
-                HomeCard(
+                PremiumQuickCard(
                     title = "Music",
                     subtitle = "Soothing",
                     icon = Icons.Default.Star,
-                    color = Color(0xFFCE93D8), // Lavender
+                    accentColor = CalmingPeach,
                     modifier = Modifier.weight(0.8f),
                     onClick = onNavigateToCalm
                 )
             }
         }
+        
+        Spacer(modifier = Modifier.height(120.dp))
+    }
+}
 
-        Spacer(modifier = Modifier.height(100.dp))
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun getGreeting(): String {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    return when {
+        hour < 12 -> "Good Morning,"
+        hour < 17 -> "Good Afternoon,"
+        else -> "Good Evening,"
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PREMIUM COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun PremiumMoodSelector() {
+    val moods = listOf("😔", "😐", "🙂", "😊", "🤩")
+    val moodLabels = listOf("Sad", "Meh", "Okay", "Good", "Great")
+    var selectedMood by remember { mutableIntStateOf(-1) }
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        moods.forEachIndexed { index, mood ->
+            val isSelected = selectedMood == index
+            
+            val scale by animateFloatAsState(
+                targetValue = if (isSelected) 1.15f else 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                ),
+                label = "moodScale$index"
+            )
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .background(
+                            if (isSelected) MutedTeal.copy(alpha = 0.2f)
+                            else DeepSurface.copy(alpha = 0.5f)
+                        )
+                        .border(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MutedTeal else Color.White.copy(alpha = 0.05f),
+                            shape = CircleShape
+                        )
+                        .clickable { selectedMood = index },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = mood, fontSize = 24.sp)
+                }
+                
+                AnimatedVisibility(visible = isSelected) {
+                    Text(
+                        text = moodLabels[index],
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedTeal,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun FeaturedChatCard(onClick: () -> Unit) {
+private fun PremiumChatCard(onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "chatCardScale"
+    )
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(110.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
+            .height(120.dp)
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
@@ -412,71 +523,113 @@ fun FeaturedChatCard(onClick: () -> Unit) {
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(
-                            Color(0xFF2E3B4E), // Dark Blue Grey
-                            Color(0xFF21252B)
+                            Color(0xFF1E2835),
+                            Color(0xFF151A22)
                         )
                     )
                 )
-                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
+                .border(
+                    1.dp,
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.1f),
+                            Color.White.copy(alpha = 0.02f)
+                        )
+                    ),
+                    RoundedCornerShape(ArouraSpacing.cardRadius.dp)
+                )
         ) {
-             // Glow
+            // Glow accent
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .offset(x = 30.dp)
-                    .size(100.dp)
-                    .background(SoftBlue.copy(alpha = 0.2f), CircleShape)
+                    .offset(x = 40.dp)
+                    .size(120.dp)
+                    .background(SoftBlue.copy(alpha = 0.15f), CircleShape)
             )
 
             Row(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(ArouraSpacing.cardPadding.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(SoftBlue.copy(alpha = 0.2f), CircleShape),
+                        .size(52.dp)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    SoftBlue.copy(alpha = 0.25f),
+                                    MutedTeal.copy(alpha = 0.15f)
+                                )
+                            ),
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                     Icon(
-                        imageVector = Icons.Default.Email, // Chat Icon
+                    Icon(
+                        imageVector = Icons.Default.Email,
                         contentDescription = null,
                         tint = SoftBlue
                     )
                 }
                 
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(modifier = Modifier.width(ArouraSpacing.md.dp))
                 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Talk to Aroura",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         color = OffWhite,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "I'm here to listen.",
+                        text = "I'm here to listen, anytime.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextDarkSecondary
                     )
                 }
+                
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = TextDarkSecondary
+                )
             }
         }
     }
 }
 
 @Composable
-fun HomeCard(
+private fun PremiumQuickCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    color: Color,
+    accentColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "quickCardScale"
+    )
+    
     Card(
-        modifier = modifier.clickable { onClick() },
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
         Box(
@@ -485,29 +638,33 @@ fun HomeCard(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            color.copy(alpha = 0.15f),
-                            color.copy(alpha = 0.05f)
+                            accentColor.copy(alpha = 0.12f),
+                            accentColor.copy(alpha = 0.04f)
                         )
                     )
                 )
-                .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                .border(
+                    1.dp,
+                    accentColor.copy(alpha = 0.15f),
+                    RoundedCornerShape(ArouraSpacing.cardRadius.dp)
+                )
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(ArouraSpacing.md.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .background(color.copy(alpha = 0.2f), CircleShape),
+                        .size(36.dp)
+                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = color,
+                        tint = accentColor,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -523,7 +680,7 @@ fun HomeCard(
                         text = subtitle,
                         style = MaterialTheme.typography.labelSmall,
                         color = TextDarkSecondary,
-                        fontSize = 10.sp
+                        fontSize = 11.sp
                     )
                 }
             }
@@ -531,84 +688,107 @@ fun HomeCard(
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// BOTTOM NAVIGATION - Premium animated navigation bar
+// ═══════════════════════════════════════════════════════════════════════════════
+
 @Composable
-fun MoodSelector() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+fun ArouraBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
+    val items = listOf(
+        NavItem("Home", Icons.Default.Home, Icons.Default.Home),
+        NavItem("Chat", Icons.Default.FavoriteBorder, Icons.Default.FavoriteBorder),
+        NavItem("Calm", Icons.Default.ThumbUp, Icons.Default.ThumbUp),
+        NavItem("Reflect", Icons.Default.Edit, Icons.Default.Edit),
+        NavItem("Support", Icons.Default.Info, Icons.Default.Info)
+    )
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        shape = RoundedCornerShape(28.dp),
+        color = DeepSurface.copy(alpha = 0.95f),
+        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+            width = 1.dp,
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.08f),
+                    Color.White.copy(alpha = 0.02f)
+                )
+            )
+        ),
+        tonalElevation = 0.dp,
+        shadowElevation = 8.dp
     ) {
-        val moods = listOf(
-            "😔", "😐", "🙂", "😊", "🤩"
-        )
-        
-        moods.forEach { mood ->
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(DeepSurface.copy(alpha = 0.5f), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = mood, fontSize = 24.sp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEachIndexed { index, item ->
+                val isSelected = selectedTab == index
+                
+                NavBarItem(
+                    item = item,
+                    isSelected = isSelected,
+                    onClick = { onTabSelected(index) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun ArouraBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    // Floating Nav Bar
-    Surface(
-        color = DeepSurface.copy(alpha = 0.9f),
+private fun NavBarItem(
+    item: NavItem,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "navScale"
+    )
+    
+    val iconColor by animateColorAsState(
+        targetValue = if (isSelected) OffWhite else TextDarkSecondary,
+        animationSpec = tween(300),
+        label = "navColor"
+    )
+    
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(20.dp)
-            .clip(RoundedCornerShape(32.dp)),
-        tonalElevation = 8.dp
+            .scale(scale)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        NavigationBar(
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp,
-            modifier = Modifier.height(72.dp)
+        Icon(
+            imageVector = item.selectedIcon,
+            contentDescription = item.title,
+            modifier = Modifier.size(24.dp),
+            tint = iconColor
+        )
+        
+        AnimatedVisibility(
+            visible = isSelected,
+            enter = fadeIn(tween(300)) + expandVertically(),
+            exit = fadeOut(tween(200)) + shrinkVertically()
         ) {
-            val items = listOf(
-                NavItem("Home", Icons.Default.Home, Icons.Default.Home),
-                NavItem("Chat", Icons.Default.FavoriteBorder, Icons.Default.FavoriteBorder), // Chat bubble
-                NavItem("Calm", Icons.Default.ThumbUp, Icons.Default.ThumbUp), // Star/Calm
-                NavItem("Reflect", Icons.Default.Edit, Icons.Default.Edit), // Pencil/Journal
-                NavItem("Support", Icons.Default.Info, Icons.Default.Info) // Life ring
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.labelSmall,
+                color = OffWhite,
+                fontSize = 10.sp,
+                modifier = Modifier.padding(top = 4.dp)
             )
-
-            items.forEachIndexed { index, item ->
-                val isSelected = selectedTab == index
-                NavigationBarItem(
-                    selected = isSelected,
-                    onClick = { onTabSelected(index) },
-                    icon = {
-                        val iconColor = if (isSelected) OffWhite else TextDarkSecondary
-                        Icon(
-                            imageVector = item.selectedIcon,
-                            contentDescription = item.title,
-                            modifier = Modifier.size(24.dp),
-                            tint = iconColor
-                        )
-                    },
-                    label = {
-                        if (isSelected) {
-                            Text(
-                                text = item.title,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = OffWhite,
-                                fontSize = 10.sp
-                            )
-                        }
-                    },
-                    colors = NavigationBarItemDefaults.colors(
-                        indicatorColor = Color.Transparent // No pill indicator behind icon
-                    ),
-                    alwaysShowLabel = false
-                )
-            }
         }
     }
 }

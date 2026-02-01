@@ -1,33 +1,35 @@
 package com.example.aroura.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aroura.ui.components.ArouraProfileIcon
+import com.example.aroura.ui.components.ArouraSectionTitle
 import com.example.aroura.ui.theme.*
 
 // Data Model
@@ -35,29 +37,38 @@ data class CalmMediaItem(
     val id: String,
     val title: String,
     val subtitle: String,
-    val category: String, // "Devotional", "AudioBook", "Relaxation"
+    val category: String,
     val startColor: Color,
     val endColor: Color
 )
 
-// Mock Data
+// Mock Data with refined colors
 val devotionalItems = listOf(
-    CalmMediaItem("1", "Krishna Bhajan", "Divine Flute", "Devotional", Color(0xFF1E88E5), Color(0xFF5E35B1)),
-    CalmMediaItem("2", "Mantras & Chants", "Om Chanting", "Devotional", Color(0xFFFFB300), Color(0xFFFF6F00)),
-    CalmMediaItem("3", "Islamic Nasheeds", "Peaceful Sufi", "Devotional", Color(0xFF00897B), Color(0xFF004D40))
+    CalmMediaItem("1", "Krishna Bhajan", "Divine Flute", "Devotional", Color(0xFF5C6BC0), Color(0xFF3949AB)),
+    CalmMediaItem("2", "Mantras & Chants", "Om Chanting", "Devotional", Color(0xFFFFB74D), Color(0xFFF57C00)),
+    CalmMediaItem("3", "Islamic Nasheeds", "Peaceful Sufi", "Devotional", Color(0xFF4DB6AC), Color(0xFF00897B))
 )
 
 val audioBookItems = listOf(
-    CalmMediaItem("4", "Mahabharata", "Epic Saga", "AudioBook", Color(0xFFD84315), Color(0xFF4E342E)),
-    CalmMediaItem("5", "Bhagavad Gita", "Sacred Song", "AudioBook", Color(0xFFFFD54F), Color(0xFFFF6F00)),
-    CalmMediaItem("6", "Holy Quran", "Recitation", "AudioBook", Color(0xFF4DB6AC), Color(0xFF00695C))
+    CalmMediaItem("4", "Mahabharata", "Epic Saga", "AudioBook", Color(0xFFE57373), Color(0xFFD32F2F)),
+    CalmMediaItem("5", "Bhagavad Gita", "Sacred Song", "AudioBook", Color(0xFFFFD54F), Color(0xFFFFA000)),
+    CalmMediaItem("6", "Holy Quran", "Recitation", "AudioBook", Color(0xFF81C784), Color(0xFF388E3C))
 )
 
 val relaxationItems = listOf(
-    CalmMediaItem("7", "Nature Sounds", "Forest Rain", "Relaxation", Color(0xFF66BB6A), Color(0xFF1B5E20)),
-    CalmMediaItem("8", "Calm Music", "Deep Sleep", "Relaxation", Color(0xFF7E57C2), Color(0xFF311B92))
+    CalmMediaItem("7", "Nature Sounds", "Forest Rain", "Relaxation", Color(0xFF81C784), Color(0xFF2E7D32)),
+    CalmMediaItem("8", "Calm Music", "Deep Sleep", "Relaxation", Color(0xFF9575CD), Color(0xFF512DA8))
 )
 
+/**
+ * Calm Screen - Premium Redesign
+ * 
+ * Features:
+ * - Clean section hierarchy
+ * - Premium media cards with hover effects
+ * - Smooth entrance animations
+ * - Consistent spacing and typography
+ */
 @Composable
 fun CalmScreen(
     onItemClick: (CalmMediaItem) -> Unit, 
@@ -65,98 +76,149 @@ fun CalmScreen(
     onProfileClick: () -> Unit
 ) {
     var showFilter by remember { mutableStateOf(false) }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp) // Bottom padding for nav bar
+                .padding(horizontal = ArouraSpacing.screenHorizontal.dp),
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             // Header
             item {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
+                
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .systemBarsPadding(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        IconButton(
-                            onClick = onProfileClick,
-                            modifier = Modifier.align(Alignment.CenterStart)
-                        ) {
-                             Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .background(DeepSurface, CircleShape)
-                                    .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(16.dp))
-                            }
-                        }
-
+                    ArouraProfileIcon(onClick = onProfileClick)
+                    
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(400))
+                    ) {
                         Text(
                             text = "Calm",
                             style = MaterialTheme.typography.headlineMedium,
                             color = OffWhite,
-                            modifier = Modifier.align(Alignment.Center)
+                            fontWeight = FontWeight.Light
                         )
-                        IconButton(
-                            onClick = { showFilter = true },
-                            modifier = Modifier.align(Alignment.CenterEnd)
-                        ) {
-                            Icon(Icons.Default.Menu, contentDescription = "Filter", tint = OffWhite)
-                        }
                     }
+                    
+                    IconButton(onClick = { showFilter = true }) {
+                        Icon(
+                            Icons.Default.Menu, 
+                            contentDescription = "Filter", 
+                            tint = TextDarkSecondary
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(500, delayMillis = 100))
+                ) {
                     Text(
                         text = "Let your heart quiet down.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextDarkSecondary,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                
+                Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             }
 
             // Devotional Section
             item {
-                SectionHeader("Devotional Songs", onClick = { onViewAllClick("Devotional Songs", devotionalItems) })
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(
+                        initialOffsetY = { 20 },
+                        animationSpec = tween(500, delayMillis = 150)
+                    )
                 ) {
-                    items(devotionalItems) { item ->
-                        SquareMediaCard(item, onItemClick)
+                    Column {
+                        PremiumSectionHeader(
+                            title = "Devotional Songs",
+                            onClick = { onViewAllClick("Devotional Songs", devotionalItems) }
+                        )
+                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
+                        ) {
+                            items(devotionalItems) { item ->
+                                PremiumSquareMediaCard(item, onItemClick)
+                            }
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             }
 
             // Audio Books Section
             item {
-                SectionHeader("Audio Books", onClick = { onViewAllClick("Audio Books", audioBookItems) })
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(500, delayMillis = 250)) + slideInVertically(
+                        initialOffsetY = { 20 },
+                        animationSpec = tween(500, delayMillis = 250)
+                    )
                 ) {
-                    items(audioBookItems) { item ->
-                        SquareMediaCard(item, onItemClick)
+                    Column {
+                        PremiumSectionHeader(
+                            title = "Audio Books",
+                            onClick = { onViewAllClick("Audio Books", audioBookItems) }
+                        )
+                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
+                        ) {
+                            items(audioBookItems) { item ->
+                                PremiumSquareMediaCard(item, onItemClick)
+                            }
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             }
 
             // Relaxation Section
             item {
-                SectionHeader("Relaxation Sounds", onClick = { onViewAllClick("Relaxation Sounds", relaxationItems) })
-                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(500, delayMillis = 350)) + slideInVertically(
+                        initialOffsetY = { 20 },
+                        animationSpec = tween(500, delayMillis = 350)
+                    )
+                ) {
+                    Column {
+                        PremiumSectionHeader(
+                            title = "Relaxation Sounds",
+                            onClick = { onViewAllClick("Relaxation Sounds", relaxationItems) }
+                        )
+                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                    }
+                }
             }
+            
             items(relaxationItems) { item ->
-                WideMediaCard(item, onItemClick)
-                Spacer(modifier = Modifier.height(16.dp))
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = fadeIn(tween(500, delayMillis = 400))
+                ) {
+                    PremiumWideMediaCard(item, onItemClick)
+                }
+                Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
             }
         }
         
@@ -170,7 +232,7 @@ fun CalmScreen(
 }
 
 @Composable
-fun SectionHeader(title: String, onClick: () -> Unit) {
+private fun PremiumSectionHeader(title: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -182,44 +244,61 @@ fun SectionHeader(title: String, onClick: () -> Unit) {
             color = OffWhite,
             fontWeight = FontWeight.SemiBold
         )
-        Text(
-            text = "View All >",
-            style = MaterialTheme.typography.labelMedium,
-            color = TextDarkSecondary,
-            modifier = Modifier.clickable { onClick() }
-        )
+        TextButton(onClick = onClick) {
+            Text(
+                text = "View All",
+                style = MaterialTheme.typography.labelMedium,
+                color = MutedTeal
+            )
+        }
     }
 }
 
 @Composable
-fun SquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
+private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "cardScale"
+    )
+    
     Box(
         modifier = Modifier
-            .size(160.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .size(150.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(ArouraSpacing.cardRadius.dp))
             .background(
                 brush = Brush.linearGradient(
-                    colors = listOf(item.startColor.copy(alpha = 0.6f), item.endColor.copy(alpha = 0.8f))
+                    colors = listOf(
+                        item.startColor.copy(alpha = 0.7f),
+                        item.endColor.copy(alpha = 0.9f)
+                    )
                 )
             )
-            .clickable { onClick(item) }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick(item) }
     ) {
         // Decorative Shine
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .offset(x = 20.dp, y = (-20).dp)
-                .size(80.dp)
-                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                .size(60.dp)
+                .background(Color.White.copy(alpha = 0.15f), CircleShape)
         )
         
-        // Play Button Visual
+        // Play Button
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(12.dp)
-                .size(32.dp)
-                .background(Color.Black.copy(alpha = 0.3f), CircleShape),
+                .padding(ArouraSpacing.sm.dp)
+                .size(36.dp)
+                .background(Color.Black.copy(alpha = 0.25f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -230,50 +309,94 @@ fun SquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
             )
         }
 
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = OffWhite,
+        // Title
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(12.dp)
-                .padding(end = 36.dp), // Avoid play button
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+                .padding(ArouraSpacing.sm.dp)
+                .padding(end = 40.dp)
+        ) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = OffWhite,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = item.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = OffWhite.copy(alpha = 0.8f),
+                maxLines = 1
+            )
+        }
     }
 }
 
 @Composable
-fun WideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
+private fun PremiumWideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "wideCardScale"
+    )
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .scale(scale)
+            .clip(RoundedCornerShape(ArouraSpacing.cardRadius.dp))
             .background(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(item.startColor.copy(alpha = 0.4f), item.endColor.copy(alpha = 0.6f))
+                    colors = listOf(
+                        item.startColor.copy(alpha = 0.5f),
+                        item.endColor.copy(alpha = 0.7f)
+                    )
                 )
             )
-            .clickable { onClick(item) }
-            .padding(horizontal = 20.dp)
+            .border(
+                1.dp,
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.1f),
+                        Color.Transparent
+                    )
+                ),
+                RoundedCornerShape(ArouraSpacing.cardRadius.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick(item) }
+            .padding(horizontal = ArouraSpacing.lg.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleMedium,
-                color = OffWhite,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = OffWhite,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = item.subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OffWhite.copy(alpha = 0.7f)
+                )
+            }
             
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.White.copy(alpha = 0.1f), CircleShape),
+                    .size(44.dp)
+                    .background(Color.White.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -285,3 +408,13 @@ fun WideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
         }
     }
 }
+
+// Keep legacy functions for compatibility
+@Composable
+fun SectionHeader(title: String, onClick: () -> Unit) = PremiumSectionHeader(title, onClick)
+
+@Composable
+fun SquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) = PremiumSquareMediaCard(item, onClick)
+
+@Composable
+fun WideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) = PremiumWideMediaCard(item, onClick)

@@ -1,5 +1,6 @@
 package com.example.aroura.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,26 +17,38 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.aroura.ui.components.AdvancedAuroraBackground
+import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit, onNavigate: (String) -> Unit = {}) {
+fun ProfileScreen(
+    onBack: () -> Unit, 
+    onNavigate: (String) -> Unit = {},
+    onLogout: () -> Unit = {}
+) {
     Box(modifier = Modifier.fillMaxSize()) {
-        AdvancedAuroraBackground()
+        ArouraBackground()
         
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
-                    title = { Text("Profile", color = OffWhite) },
+                    title = { 
+                        Text(
+                            "Profile", 
+                            color = OffWhite,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Light
+                        ) 
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = OffWhite)
@@ -49,70 +62,187 @@ fun ProfileScreen(onBack: () -> Unit, onNavigate: (String) -> Unit = {}) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(horizontal = ArouraSpacing.screenHorizontal.dp),
+                verticalArrangement = Arrangement.spacedBy(ArouraSpacing.lg.dp),
+                contentPadding = PaddingValues(bottom = ArouraSpacing.xxl.dp)
             ) {
                 // User Header
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = ArouraSpacing.lg.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // Profile Avatar with subtle pulse
                         Box(
                             modifier = Modifier
                                 .size(100.dp)
-                                .background(MutedTeal.copy(alpha = 0.2f), CircleShape)
-                                .border(2.dp, MutedTeal, CircleShape),
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(
+                                            MutedTeal.copy(alpha = 0.3f),
+                                            MutedTeal.copy(alpha = 0.1f)
+                                        )
+                                    ),
+                                    CircleShape
+                                )
+                                .border(2.dp, MutedTeal.copy(alpha = 0.6f), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Person, null, tint = OffWhite, modifier = Modifier.size(50.dp))
+                            Icon(
+                                Icons.Default.Person, 
+                                null, 
+                                tint = OffWhite, 
+                                modifier = Modifier.size(48.dp)
+                            )
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("User Name", style = MaterialTheme.typography.titleLarge, color = OffWhite)
-                        Text("user@example.com", style = MaterialTheme.typography.bodyMedium, color = TextDarkSecondary)
+                        
+                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                        
+                        Text(
+                            "Sarah", 
+                            style = MaterialTheme.typography.headlineSmall, 
+                            color = OffWhite,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Text(
+                            "sarah@example.com", 
+                            style = MaterialTheme.typography.bodyMedium, 
+                            color = TextDarkSecondary
+                        )
                     }
                 }
 
-                item { Divider(color = DeepSurface) }
+                item { 
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.05f),
+                        thickness = 1.dp
+                    ) 
+                }
 
-                // Settings
+                // General Settings
                 item { SettingsSectionTitle("General") }
                 item { 
-                    SettingsItem("Language", "English", Icons.Default.Info) { onNavigate("language") }
+                    SettingsItem(
+                        "Language", 
+                        "English", 
+                        Icons.Default.Info
+                    ) { onNavigate("language") }
                 }
                 item { 
-                    ToggleSettingsItem("AI Memory", "Allow AI to remember context", true, Icons.Default.Settings) 
+                    ToggleSettingsItem(
+                        "AI Memory", 
+                        "Allow AI to remember context", 
+                        true, 
+                        Icons.Default.Settings
+                    ) 
                 }
 
+                // Content Settings
                 item { SettingsSectionTitle("Content") }
                 item { 
-                    SettingsItem("Devotional Preferences", "All Religions", Icons.Default.Favorite) { onNavigate("devotional") }
+                    SettingsItem(
+                        "Devotional Preferences", 
+                        "All Religions", 
+                        Icons.Default.Favorite
+                    ) { onNavigate("devotional") }
                 }
 
+                // Privacy Settings
                 item { SettingsSectionTitle("Privacy & Safety") }
                 item { 
-                    SettingsItem("Privacy & Data", "Manage your data", Icons.Default.Lock) { onNavigate("privacy") }
+                    SettingsItem(
+                        "Privacy & Data", 
+                        "Manage your data", 
+                        Icons.Default.Lock
+                    ) { onNavigate("privacy") }
                 }
                 item { 
-                    SettingsItem("Ethics & Disclaimers", "Read our manifesto", Icons.Default.Info) { onNavigate("ethics") }
+                    SettingsItem(
+                        "Ethics & Disclaimers", 
+                        "Read our manifesto", 
+                        Icons.Default.Info
+                    ) { onNavigate("ethics") }
                 }
                 
-                item { Spacer(modifier = Modifier.height(40.dp)) }
+                item { Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp)) }
                 
+                // Logout Button
                 item {
-                    Button(
-                        onClick = { /* Logout */ },
-                        colors = ButtonDefaults.buttonColors(containerColor = GentleError.copy(alpha = 0.2f), contentColor = GentleError),
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(25.dp)
-                    ) {
-                        Text("Log Out")
-                    }
+                    PremiumLogoutButton(onClick = onLogout)
                 }
-                
-                item { Spacer(modifier = Modifier.height(40.dp)) }
             }
         }
+    }
+}
+
+@Composable
+private fun PremiumLogoutButton(onClick: () -> Unit) {
+    var showConfirmation by remember { mutableStateOf(false) }
+    
+    if (showConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showConfirmation = false },
+            containerColor = DeepSurface,
+            title = {
+                Text(
+                    "Log Out?",
+                    color = OffWhite,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    "Are you sure you want to log out? You'll need to sign in again to continue.",
+                    color = TextDarkSecondary
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmation = false
+                        onClick()
+                    }
+                ) {
+                    Text("Log Out", color = GentleError)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmation = false }) {
+                    Text("Cancel", color = MutedTeal)
+                }
+            }
+        )
+    }
+    
+    Button(
+        onClick = { showConfirmation = true },
+        colors = ButtonDefaults.buttonColors(
+            containerColor = GentleError.copy(alpha = 0.12f), 
+            contentColor = GentleError
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),
+        border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+            brush = androidx.compose.ui.graphics.SolidColor(GentleError.copy(alpha = 0.3f))
+        )
+    ) {
+        Icon(
+            Icons.Default.Close,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            "Log Out",
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
