@@ -30,13 +30,15 @@ import com.example.aroura.ui.theme.*
 data class Message(val text: String, val isUser: Boolean)
 
 @Composable
-fun ChatScreen(onBack: () -> Unit) {
+fun ChatScreen(mode: String, onBack: () -> Unit) {
     var messageText by remember { mutableStateOf("") }
     val messages = remember {
         mutableStateListOf(
-            Message("Hello, I'm A.R.O.U.R.A.\nWhat's on your mind?", false),
-            Message("Hi A.R.O.U.R.A. I'm feeling a bit overwhelmed right now...", true),
-            Message("I'm here with you. It's okay to feel overwhelmed. Would you like to talk about what's going on, or perhaps take a few calming breaths together?", false)
+            Message(
+                if (mode == "Counselor") "Hello. I'm here to listen and support you safely." 
+                else "Hey! I'm your AI buddy. What's up?", 
+                false
+            )
         )
     }
 
@@ -46,7 +48,7 @@ fun ChatScreen(onBack: () -> Unit) {
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                ChatTopBar(onBack)
+                ChatTopBar(mode, onBack)
             },
             bottomBar = {
                 ChatInputBar(
@@ -55,6 +57,10 @@ fun ChatScreen(onBack: () -> Unit) {
                     onSend = {
                         if (messageText.isNotBlank()) {
                             messages.add(Message(messageText, true))
+                            // Mock Reply
+                            if (messageText.lowercase().contains("help")) {
+                                messages.add(Message("I hear you. If you are in crisis, please use the Support tab for immediate help.", false))
+                            }
                             messageText = ""
                         }
                     }
@@ -72,10 +78,14 @@ fun ChatScreen(onBack: () -> Unit) {
                 // Header Subtitle
                 item {
                     Text(
-                        text = "I'm here for you. What's on your mind?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextDarkSecondary.copy(alpha = 0.7f),
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        text = if (mode == "Counselor") "Professional Support Mode" else "Casual Companion Mode",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MutedTeal,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .background(DeepSurface.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(vertical = 4.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
@@ -90,14 +100,21 @@ fun ChatScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatTopBar(onBack: () -> Unit) {
+fun ChatTopBar(mode: String, onBack: () -> Unit) {
     TopAppBar(
         title = {
-            Text(
-                text = "Talk to A.R.O.U.R.A",
-                style = MaterialTheme.typography.titleMedium,
-                color = OffWhite
-            )
+            Column {
+                Text(
+                    text = "A.R.O.U.R.A",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = OffWhite
+                )
+                Text(
+                    text = mode,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextDarkSecondary
+                )
+            }
         },
         navigationIcon = {
             IconButton(onClick = onBack) {

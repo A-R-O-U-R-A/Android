@@ -58,103 +58,118 @@ val relaxationItems = listOf(
 )
 
 @Composable
-fun CalmScreen(onItemClick: (CalmMediaItem) -> Unit, onProfileClick: () -> Unit) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp) // Bottom padding for nav bar
-    ) {
-        // Header
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(24.dp))
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    IconButton(
-                        onClick = onProfileClick,
-                        modifier = Modifier.align(Alignment.CenterStart)
-                    ) {
-                         Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(DeepSurface, CircleShape)
-                                .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
-                            contentAlignment = Alignment.Center
+fun CalmScreen(
+    onItemClick: (CalmMediaItem) -> Unit, 
+    onViewAllClick: (String, List<CalmMediaItem>) -> Unit,
+    onProfileClick: () -> Unit
+) {
+    var showFilter by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp) // Bottom padding for nav bar
+        ) {
+            // Header
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        IconButton(
+                            onClick = onProfileClick,
+                            modifier = Modifier.align(Alignment.CenterStart)
                         ) {
-                            Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(16.dp))
+                             Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(DeepSurface, CircleShape)
+                                    .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(16.dp))
+                            }
+                        }
+
+                        Text(
+                            text = "Calm",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = OffWhite,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                        IconButton(
+                            onClick = { showFilter = true },
+                            modifier = Modifier.align(Alignment.CenterEnd)
+                        ) {
+                            Icon(Icons.Default.List, contentDescription = "Filter", tint = OffWhite)
                         }
                     }
-
                     Text(
-                        text = "Calm",
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = OffWhite,
-                        modifier = Modifier.align(Alignment.Center)
+                        text = "Let your heart quiet down.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextDarkSecondary,
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                    IconButton(
-                        onClick = { /* Search */ },
-                        modifier = Modifier.align(Alignment.CenterEnd)
-                    ) {
-                        Icon(Icons.Default.Search, contentDescription = "Search", tint = OffWhite)
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+
+            // Devotional Section
+            item {
+                SectionHeader("Devotional Songs", onClick = { onViewAllClick("Devotional Songs", devotionalItems) })
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(devotionalItems) { item ->
+                        SquareMediaCard(item, onItemClick)
                     }
                 }
-                Text(
-                    text = "Let your heart quiet down.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextDarkSecondary,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
+                Spacer(modifier = Modifier.height(32.dp))
             }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
 
-        // Devotional Section
-        item {
-            SectionHeader("Devotional Songs")
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(devotionalItems) { item ->
-                    SquareMediaCard(item, onItemClick)
+            // Audio Books Section
+            item {
+                SectionHeader("Audio Books", onClick = { onViewAllClick("Audio Books", audioBookItems) })
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(audioBookItems) { item ->
+                        SquareMediaCard(item, onItemClick)
+                    }
                 }
+                Spacer(modifier = Modifier.height(32.dp))
             }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
 
-        // Audio Books Section
-        item {
-            SectionHeader("Audio Books")
-            Spacer(modifier = Modifier.height(16.dp))
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(audioBookItems) { item ->
-                    SquareMediaCard(item, onItemClick)
-                }
+            // Relaxation Section
+            item {
+                SectionHeader("Relaxation Sounds", onClick = { onViewAllClick("Relaxation Sounds", relaxationItems) })
+                Spacer(modifier = Modifier.height(16.dp))
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            items(relaxationItems) { item ->
+                WideMediaCard(item, onItemClick)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
-
-        // Relaxation Section
-        item {
-            SectionHeader("Relaxation Sounds")
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-        items(relaxationItems) { item ->
-            WideMediaCard(item, onItemClick)
-            Spacer(modifier = Modifier.height(16.dp))
+        
+        if (showFilter) {
+            CalmFilterScreen(
+                onClose = { showFilter = false },
+                onApply = { _, _ -> showFilter = false }
+            )
         }
     }
 }
 
 @Composable
-fun SectionHeader(title: String) {
+fun SectionHeader(title: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -169,7 +184,8 @@ fun SectionHeader(title: String) {
         Text(
             text = "View All >",
             style = MaterialTheme.typography.labelMedium,
-            color = TextDarkSecondary
+            color = TextDarkSecondary,
+            modifier = Modifier.clickable { onClick() }
         )
     }
 }

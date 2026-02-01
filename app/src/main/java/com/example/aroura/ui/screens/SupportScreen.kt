@@ -24,7 +24,11 @@ import androidx.compose.ui.unit.sp
 import com.example.aroura.ui.theme.*
 
 @Composable
-fun SupportScreen(onProfileClick: () -> Unit) {
+fun SupportScreen(
+    onProfileClick: () -> Unit,
+    onNavigate: (String) -> Unit,
+    onOpenPanic: () -> Unit
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -82,11 +86,11 @@ fun SupportScreen(onProfileClick: () -> Unit) {
                     Text("1. Breathe in for 4 seconds.\n2. Hold for 7 seconds.\n3. Exhale for 8 seconds.", color = Color.White, style = MaterialTheme.typography.bodyLarge)
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
-                        onClick = { /* Call Emergency */ },
+                        onClick = onOpenPanic, // Opens Panic Overlay
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFD84315)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Call Emergency Services", fontWeight = FontWeight.Bold)
+                        Text("Activate Panic Mode", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -97,9 +101,9 @@ fun SupportScreen(onProfileClick: () -> Unit) {
         item {
             Text("Mental Health Helplines", style = MaterialTheme.typography.titleMedium, color = OffWhite)
             Spacer(modifier = Modifier.height(16.dp))
-            SupportOptionCard("Vandrevala Foundation", "1860-266-2345", Icons.Default.Phone)
-            Spacer(modifier = Modifier.height(16.dp))
-            SupportOptionCard("iCall (Tata Institute)", "022-25521111", Icons.Default.Phone)
+            SupportOptionCard("View All Helplines", "Verified Numbers", Icons.Default.Phone) {
+                onNavigate("helplines")
+            }
             Spacer(modifier = Modifier.height(32.dp))
         }
 
@@ -109,9 +113,9 @@ fun SupportScreen(onProfileClick: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 // Icons safe replacement
-                CompactSupportCard("Chat", Icons.Default.Email, Modifier.weight(1f))
-                CompactSupportCard("Call", Icons.Default.Call, Modifier.weight(1f))
-                CompactSupportCard("Video", Icons.Default.Face, Modifier.weight(1f))
+                CompactSupportCard("Chat", Icons.Default.Email, Modifier.weight(1f)) { onNavigate("psychiatrist") }
+                CompactSupportCard("Call", Icons.Default.Call, Modifier.weight(1f)) { onNavigate("psychiatrist") }
+                CompactSupportCard("Video", Icons.Default.Face, Modifier.weight(1f)) { onNavigate("psychiatrist") }
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -126,27 +130,37 @@ fun SupportScreen(onProfileClick: () -> Unit) {
                     .height(60.dp)
                     .clip(RoundedCornerShape(30.dp))
                     .background(DeepSurface.copy(alpha = 0.5f))
-                    .clickable { }
+                    .clickable { onNavigate("trusted") }
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Add, null, tint = MutedTeal)
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text("Add Trusted Contact", color = MutedTeal, fontWeight = FontWeight.SemiBold)
+                    Text("Add / Manage Trusted Contacts", color = MutedTeal, fontWeight = FontWeight.SemiBold)
                 }
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+        
+        // Emergency Resources
+        item {
+             Text("Emergency Resources", style = MaterialTheme.typography.titleMedium, color = OffWhite)
+            Spacer(modifier = Modifier.height(16.dp))
+            SupportOptionCard("Hospitals & Police", "Near you", Icons.Default.LocationOn) {
+                onNavigate("emergency")
             }
         }
     }
 }
 
 @Composable
-fun SupportOptionCard(title: String, subtitle: String, icon: ImageVector) {
+fun SupportOptionCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) {
     Surface(
         color = DeepSurface.copy(alpha = 0.6f),
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth().height(72.dp),
-        onClick = {}
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 20.dp),
@@ -164,12 +178,12 @@ fun SupportOptionCard(title: String, subtitle: String, icon: ImageVector) {
 }
 
 @Composable
-fun CompactSupportCard(text: String, icon: ImageVector, modifier: Modifier = Modifier) {
+fun CompactSupportCard(text: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         color = DeepSurface.copy(alpha = 0.6f),
         shape = RoundedCornerShape(20.dp),
         modifier = modifier.height(80.dp),
-        onClick = {}
+        onClick = onClick
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,

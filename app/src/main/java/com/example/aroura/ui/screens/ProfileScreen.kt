@@ -27,7 +27,7 @@ import com.example.aroura.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit) {
+fun ProfileScreen(onBack: () -> Unit, onNavigate: (String) -> Unit = {}) {
     Box(modifier = Modifier.fillMaxSize()) {
         AdvancedAuroraBackground()
         
@@ -76,29 +76,25 @@ fun ProfileScreen(onBack: () -> Unit) {
                 item { Divider(color = DeepSurface) }
 
                 // Settings
-// ...
                 item { SettingsSectionTitle("General") }
                 item { 
-                    // Using Info as Language icon placeholder if Language is missing
-                    SettingsItem("Language", "English", Icons.Default.Info) 
+                    SettingsItem("Language", "English", Icons.Default.Info) { onNavigate("language") }
                 }
                 item { 
-                    // Using Settings as Memory icon placeholder
                     ToggleSettingsItem("AI Memory", "Allow AI to remember context", true, Icons.Default.Settings) 
                 }
-// ...
 
                 item { SettingsSectionTitle("Content") }
                 item { 
-                    SettingsItem("Devotional Preferences", "All Religions", Icons.Default.Favorite) 
+                    SettingsItem("Devotional Preferences", "All Religions", Icons.Default.Favorite) { onNavigate("devotional") }
                 }
 
                 item { SettingsSectionTitle("Privacy & Safety") }
                 item { 
-                    SettingsItem("Privacy & Data", "Manage your data", Icons.Default.Lock) 
+                    SettingsItem("Privacy & Data", "Manage your data", Icons.Default.Lock) { onNavigate("privacy") }
                 }
                 item { 
-                    SettingsItem("Ethics & Disclaimers", "Read our manifesto", Icons.Default.Info) 
+                    SettingsItem("Ethics & Disclaimers", "Read our manifesto", Icons.Default.Info) { onNavigate("ethics") }
                 }
                 
                 item { Spacer(modifier = Modifier.height(40.dp)) }

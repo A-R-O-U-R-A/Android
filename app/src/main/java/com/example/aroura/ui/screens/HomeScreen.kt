@@ -35,11 +35,28 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
     
     // Navigation States
     var chatScreenState by remember { mutableStateOf("selection") }
+    var chatMode by remember { mutableStateOf("Counselor") } // Added State
+    
+    // Calm States
     var calmNavigationState by remember { mutableStateOf("list") }
     var currentMediaItem by remember { mutableStateOf<CalmMediaItem?>(null) }
+    var currentAudioListTitle by remember { mutableStateOf("") }
+    var currentAudioList by remember { mutableStateOf<List<CalmMediaItem>>(emptyList()) }
+    
+    // Reflect States
     var reflectNavigationState by remember { mutableStateOf("menu") }
+    
+    // Support States
+    var supportNavigationState by remember { mutableStateOf("menu") }
+    
+    // Profile States
     var showProfile by remember { mutableStateOf(false) }
+    var profileNavigationState by remember { mutableStateOf("menu") }
+
+    // Home Overlays
     var showBreathingScreen by remember { mutableStateOf(false) }
+    var showGroundingScreen by remember { mutableStateOf(false) }
+    var showPanicScreen by remember { mutableStateOf(false) }
 
     // Helper to switch to chat tab
     val navigateToChatTab = {
@@ -53,18 +70,47 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
         calmNavigationState = "list"
     }
 
+    // Helper to switch to support tab (for panic)
+    val navigateToSupportTab = {
+        selectedTab = 4
+        supportNavigationState = "menu"
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AdvancedAuroraBackground()
 
-        if (showBreathingScreen) {
-            // Fullscreen Breathing Overlay
-            // Z-index high
-             Box(modifier = Modifier.fillMaxSize()) {
+        if (showPanicScreen) {
+             // Fullscreen Panic Overlay (Highest Priority)
+             Box(modifier = Modifier.fillMaxSize().zIndex(10f)) {
+                 PanicScreen(
+                     onClose = { showPanicScreen = false },
+                     onNavigateToBreathing = {
+                         showPanicScreen = false
+                         showBreathingScreen = true
+                     }
+                 )
+             }
+        } else if (showBreathingScreen) {
+             Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
                  BreathingScreen(onClose = { showBreathingScreen = false })
              }
+        } else if (showGroundingScreen) {
+            Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
+                GroundingScreen(onBack = { showGroundingScreen = false })
+            }
         } else if (showProfile) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                ProfileScreen(onBack = { showProfile = false })
+            Box(modifier = Modifier.fillMaxSize().zIndex(8f)) {
+                // Profile Navigation
+                when (profileNavigationState) {
+                    "menu" -> ProfileScreen(
+                        onBack = { showProfile = false },
+                        onNavigate = { dest -> profileNavigationState = dest }
+                    )
+                    "language" -> LanguageScreen(onBack = { profileNavigationState = "menu" })
+                    "privacy" -> PrivacyScreen(onBack = { profileNavigationState = "menu" })
+                    "devotional" -> DevotionalPreferencesScreen(onBack = { profileNavigationState = "menu" })
+                    "ethics" -> EthicsScreen(onBack = { profileNavigationState = "menu" })
+                }
             }
         } else {
             Scaffold(
@@ -72,17 +118,19 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                 bottomBar = {
                     val hideBottomBar = (selectedTab == 1 && chatScreenState == "chatting") ||
                                         (selectedTab == 2 && calmNavigationState == "player") ||
-                                        (selectedTab == 3 && reflectNavigationState != "menu")
+                                        (selectedTab == 3 && reflectNavigationState != "menu") ||
+                                        (selectedTab == 4 && supportNavigationState != "menu")
                     
                     if (!hideBottomBar) {
                         ArouraBottomNavigation(
                             selectedTab = selectedTab,
                             onTabSelected = { 
                                 selectedTab = it
-                                // Reset states
+                                // Reset states when switching tabs
                                 if (it != 1) chatScreenState = "selection"
                                 if (it != 2) calmNavigationState = "list"
                                 if (it != 3) reflectNavigationState = "menu"
+                                if (it != 4) supportNavigationState = "menu"
                             }
                         )
                     }
@@ -95,7 +143,8 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                             bottom = if (
                                 (selectedTab == 1 && chatScreenState == "chatting") || 
                                 (selectedTab == 2 && calmNavigationState == "player") ||
-                                (selectedTab == 3 && reflectNavigationState != "menu")
+                                (selectedTab == 3 && reflectNavigationState != "menu") ||
+                                (selectedTab == 4 && supportNavigationState != "menu")
                             ) 0.dp else paddingValues.calculateBottomPadding()
                         )
                 ) {
@@ -103,36 +152,60 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                         0 -> HomeContent(
                             onNavigateToChat = navigateToChatTab, 
                             onNavigateToCalm = navigateToCalmTab,
-                            onNavigateToSupport = { selectedTab = 4 },
+                            onNavigateToSupport = navigateToSupportTab,
                             onOpenBreathing = { showBreathingScreen = true },
-                            onProfileClick = { showProfile = true }
+                            onOpenGrounding = { showGroundingScreen = true },
+                            onOpenPanic = { showPanicScreen = true },
+                            onProfileClick = { 
+                                showProfile = true 
+                                profileNavigationState = "menu"
+                            }
                         ) 
                         1 -> {
                             if (chatScreenState == "selection") {
                                 ChatSelectionScreen(
-                                    onChatSelected = { _ -> chatScreenState = "chatting" },
-                                    onProfileClick = { showProfile = true }
+                                    onChatSelected = { mode -> 
+                                        chatMode = mode
+                                        chatScreenState = "chatting" 
+                                    },
+                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
                                 )
                             } else {
-                                ChatScreen(onBack = { chatScreenState = "selection" })
+                                ChatScreen(
+                                    mode = chatMode,
+                                    onBack = { chatScreenState = "selection" }
+                                )
                             }
                         }
                         2 -> {
-                            if (calmNavigationState == "list") {
-                                CalmScreen(
+                            when (calmNavigationState) {
+                                "list" -> CalmScreen(
                                     onItemClick = { item ->
                                         currentMediaItem = item
                                         calmNavigationState = "player"
                                     },
-                                    onProfileClick = { showProfile = true }
+                                    onViewAllClick = { title, items ->
+                                        currentAudioListTitle = title
+                                        currentAudioList = items
+                                        calmNavigationState = "audio_list"
+                                    },
+                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
                                 )
-                            } else {
-                                currentMediaItem?.let { item ->
+                                "player" -> currentMediaItem?.let { item ->
                                     CalmPlayerScreen(
                                         item = item,
                                         onBack = { calmNavigationState = "list" }
                                     )
                                 }
+                                "audio_list" -> AudioListScreen(
+                                    title = currentAudioListTitle,
+                                    items = currentAudioList,
+                                    onItemClick = { item ->
+                                        currentMediaItem = item
+                                        calmNavigationState = "player"
+                                    },
+                                    onBack = { calmNavigationState = "list" }
+                                )
                             }
                         }
                         3 -> {
@@ -146,16 +219,30 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                                             ReflectOption.EmotionTracker -> "tracker"
                                         }
                                     },
-                                    onProfileClick = { showProfile = true }
+                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" }
                                 )
                                 "mood" -> MoodCheckInScreen(onBack = { reflectNavigationState = "menu" })
-                                "journal" -> JournalScreen(onBack = { reflectNavigationState = "menu" })
+                                "journal" -> JournalScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    onNavigateToVoice = { reflectNavigationState = "voice_journal" }
+                                )
+                                "voice_journal" -> VoiceJournalScreen(onBack = { reflectNavigationState = "journal" })
                                 "guided" -> GuidedReflectionScreen(onBack = { reflectNavigationState = "menu" })
                                 "tracker" -> EmotionTrackerScreen(onBack = { reflectNavigationState = "menu" })
                             }
                         }
                         4 -> {
-                            SupportScreen(onProfileClick = { showProfile = true })
+                            when (supportNavigationState) {
+                                "menu" -> SupportScreen(
+                                    onProfileClick = { showProfile = true; profileNavigationState = "menu" },
+                                    onNavigate = { dest -> supportNavigationState = dest },
+                                    onOpenPanic = { showPanicScreen = true } // Add direct panic access from Support
+                                )
+                                "helplines" -> HelplineScreen(onBack = { supportNavigationState = "menu" })
+                                "psychiatrist" -> PsychiatristContactScreen(onBack = { supportNavigationState = "menu" })
+                                "trusted" -> TrustedContactsScreen(onBack = { supportNavigationState = "menu" })
+                                "emergency" -> EmergencyResourcesScreen(onBack = { supportNavigationState = "menu" })
+                            }
                         }
                     }
                 }
@@ -172,6 +259,8 @@ fun HomeContent(
     onNavigateToCalm: () -> Unit,
     onNavigateToSupport: () -> Unit,
     onOpenBreathing: () -> Unit,
+    onOpenGrounding: () -> Unit,
+    onOpenPanic: () -> Unit,
     onProfileClick: () -> Unit
 ) {
     Column(
@@ -278,7 +367,7 @@ fun HomeContent(
                     icon = Icons.Default.Warning,
                     color = Color(0xFFEF9A9A), // Soft Red
                     modifier = Modifier.weight(0.8f),
-                    onClick = onNavigateToSupport
+                    onClick = onOpenPanic
                 )
                 
                 // Grounding (Tall)
@@ -288,7 +377,7 @@ fun HomeContent(
                     icon = Icons.Default.LocationOn, // Anchor/Place
                     color = Color(0xFFA5D6A7), // Soft Green
                     modifier = Modifier.weight(1.2f),
-                    onClick = { /* TODO: Open Grounding */ }
+                    onClick = onOpenGrounding
                 )
                  // Calm Music (Short)
                 HomeCard(

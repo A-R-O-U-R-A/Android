@@ -263,7 +263,7 @@ fun MoodCheckInScreen(onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun JournalScreen(onBack: () -> Unit) {
+fun JournalScreen(onBack: () -> Unit, onNavigateToVoice: () -> Unit) {
     var text by remember { mutableStateOf("") }
     Box(modifier = Modifier.fillMaxSize()) {
         AdvancedAuroraBackground()
@@ -282,6 +282,20 @@ fun JournalScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.titleLarge,
                     color = OffWhite.copy(alpha = 0.8f)
                 )
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Toggle / Switch to Voice
+                Button(
+                    onClick = onNavigateToVoice,
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepSurface.copy(alpha = 0.6f), contentColor = MutedTeal),
+                    shape = RoundedCornerShape(25.dp)
+                ) {
+                    Icon(Icons.Default.Star, null) // Mic replacement
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Switch to Voice Journal")
+                }
+                
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Box(
