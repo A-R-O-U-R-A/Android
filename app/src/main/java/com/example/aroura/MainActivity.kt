@@ -13,6 +13,8 @@ import androidx.compose.runtime.setValue
 import com.example.aroura.ui.screens.HomeScreen
 import com.example.aroura.ui.screens.LoginScreen
 import com.example.aroura.ui.screens.WelcomeScreen
+import com.example.aroura.ui.screens.calm.CalmAnxietyFlowScreen
+import com.example.aroura.ui.screens.mood.MoodJournalFlowScreen
 import com.example.aroura.ui.theme.ArouraTheme
 
 /**
@@ -56,7 +58,28 @@ class MainActivity : ComponentActivity() {
                             onNavigateToChat = { 
                                 // Logout - navigate back to welcome
                                 currentScreen = "welcome"
+                            },
+                            onNavigateToCalmAnxiety = {
+                                currentScreen = "calm_anxiety"
+                            },
+                            onNavigateToMoodJournal = {
+                                currentScreen = "mood_journal"
                             }
+                        )
+                        "calm_anxiety" -> CalmAnxietyFlowScreen(
+                            onClose = { currentScreen = "home" },
+                            onNavigateToBreathing = { 
+                                // TODO: Navigate to breathing exercise
+                                currentScreen = "home" 
+                            },
+                            onNavigateToChat = { 
+                                // TODO: Navigate to chat
+                                currentScreen = "home" 
+                            }
+                        )
+                        "mood_journal" -> MoodJournalFlowScreen(
+                            onClose = { currentScreen = "home" },
+                            onSaveComplete = { currentScreen = "home" }
                         )
                     }
                 }

@@ -36,6 +36,7 @@ import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.components.ArouraCard
 import com.example.aroura.ui.components.ArouraSectionTitle
+import com.example.aroura.ui.components.home.*
 import com.example.aroura.ui.theme.*
 import com.example.aroura.data.ReflectTestId
 import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
@@ -52,7 +53,11 @@ import com.example.aroura.ui.screens.reflect.TestFlowScreen
  * - Proper alignment throughout
  */
 @Composable
-fun HomeScreen(onNavigateToChat: () -> Unit) {
+fun HomeScreen(
+    onNavigateToChat: () -> Unit,
+    onNavigateToCalmAnxiety: () -> Unit = {},
+    onNavigateToMoodJournal: () -> Unit = {}
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
     
     // Navigation States
@@ -181,7 +186,9 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                             onOpenBreathing = { showBreathingScreen = true },
                             onOpenGrounding = { showGroundingScreen = true },
                             onOpenPanic = { showPanicScreen = true },
-                            onProfileClick = openProfile
+                            onProfileClick = openProfile,
+                            onNavigateToCalmAnxiety = onNavigateToCalmAnxiety,
+                            onNavigateToMoodJournal = onNavigateToMoodJournal
                         ) 
                         1 -> {
                             if (chatScreenState == "selection") {
@@ -292,7 +299,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// HOME CONTENT - Main scrollable content
+// HOME CONTENT - Complete Redesigned Experience
 // ═══════════════════════════════════════════════════════════════════════════════
 
 @Composable
@@ -303,8 +310,46 @@ fun HomeContent(
     onOpenBreathing: () -> Unit,
     onOpenGrounding: () -> Unit,
     onOpenPanic: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onNavigateToCalmAnxiety: () -> Unit = {},
+    onNavigateToMoodJournal: () -> Unit = {}
 ) {
+    // State for all sections
+    var selectedMood by remember { mutableIntStateOf(-1) }
+    var selectedDay by remember { mutableIntStateOf(java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) - 2) }
+    
+    // Sample routine tasks
+    val routineTasks = remember {
+        listOf(
+            RoutineTask("1", "Journaling", "Track Your Mood", false, CalmingLavender),
+            RoutineTask("2", "Journaling", "Calm Your Anxiety", false, SoftBlue),
+            RoutineTask("3", "Mindfulness", "5-Minute Breathing", true, MutedTeal)
+        )
+    }
+    
+    // Sample test previews
+    val testPreviews = remember {
+        listOf(
+            TestPreview("1", "Personality", "🧬", CalmingLavender, false),
+            TestPreview("2", "Childhood", "👶", CalmingPeach, false),
+            TestPreview("3", "Love Language", "❤️", GentleError.copy(alpha = 0.8f), false),
+            TestPreview("4", "Attachment", "🔗", MutedTeal, false),
+            TestPreview("5", "Emotional IQ", "💜", SoftBlue, false)
+        )
+    }
+    
+    // Sample quizzes
+    val quizzes = remember {
+        listOf(
+            QuizPreview("1", "What's Your Superpower?", "✨", CalmingPeach),
+            QuizPreview("2", "Self-Care Style", "🌿", CalmingGreen),
+            QuizPreview("3", "Your Inner Animal", "🦋", CalmingLavender)
+        )
+    }
+    
+    // Daily affirmation
+    val affirmation = "You are allowed to be exactly who you are."
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -315,399 +360,121 @@ fun HomeContent(
         Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // HEADER - Greeting + Profile
+        // SECTION 1: GREETING & EMOTIONAL CHECK-IN
         // ═══════════════════════════════════════════════════════════════════════
         
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = getGreeting(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextDarkSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Sarah",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = OffWhite,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            
-            ArouraProfileIcon(onClick = onProfileClick)
-        }
+        GreetingSection(
+            userName = "Sarah",
+            onProfileClick = onProfileClick
+        )
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        EmotionalCheckInSection(
+            selectedMood = selectedMood,
+            onMoodSelected = { selectedMood = it }
+        )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // MOOD CHECK-IN
+        // SECTION 2: PRIMARY CTA - TALK TO AROURA
         // ═══════════════════════════════════════════════════════════════════════
         
-        ArouraSectionTitle(text = "How are you feeling?")
-        
-        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
-        
-        PremiumMoodSelector()
-        
-        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
-        
-        // ═══════════════════════════════════════════════════════════════════════
-        // FEATURED: CHAT WITH AROURA
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        PremiumChatCard(onClick = onNavigateToChat)
+        TalkToArouraCard(onClick = onNavigateToChat)
         
         Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // QUICK ACTIONS GRID
+        // SECTION 3: FIND A SPECIALIST
         // ═══════════════════════════════════════════════════════════════════════
         
-        ArouraSectionTitle(text = "Quick Relief")
+        FindSpecialistCard(onClick = onNavigateToSupport)
         
-        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp),
-            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
-        ) {
-            // Left Column
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
-            ) {
-                PremiumQuickCard(
-                    title = "Breathe",
-                    subtitle = "Relax now",
-                    icon = Icons.Default.FavoriteBorder,
-                    accentColor = MutedTeal,
-                    modifier = Modifier.weight(1.4f),
-                    onClick = onOpenBreathing
-                )
-                PremiumQuickCard(
-                    title = "Sounds",
-                    subtitle = "Nature & Ambient",
-                    icon = Icons.Default.PlayArrow,
-                    accentColor = CalmingLavender,
-                    modifier = Modifier.weight(1f),
-                    onClick = onNavigateToCalm
-                )
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 4: DAILY AFFIRMATION
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        DailyAffirmationCard(
+            affirmation = affirmation,
+            onShare = { /* Share functionality */ }
+        )
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 5: SPONSORED / OPPORTUNITIES
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        SponsoredSection(
+            title = "BetterHelp Therapy",
+            description = "Professional counseling, on your schedule",
+            ctaText = "Learn More",
+            onClick = { }
+        )
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 6: YOUR ROUTINE (NO PETAL GAME)
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        YourRoutineSection(
+            selectedDay = selectedDay.coerceIn(0, 6),
+            onDaySelected = { selectedDay = it },
+            tasks = routineTasks,
+            onTaskClick = { task ->
+                // Navigate to appropriate screen based on task
+                when (task.title) {
+                    "Track Your Mood" -> onNavigateToMoodJournal()
+                    "Calm Your Anxiety" -> onNavigateToCalmAnxiety()
+                    "5-Minute Breathing" -> onOpenBreathing()
+                    else -> { /* Other tasks */ }
+                }
             }
-            
-            // Right Column
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
-            ) {
-                PremiumQuickCard(
-                    title = "Panic",
-                    subtitle = "Emergency",
-                    icon = Icons.Default.Warning,
-                    accentColor = GentleError,
-                    modifier = Modifier.weight(0.8f),
-                    onClick = onOpenPanic
-                )
-                PremiumQuickCard(
-                    title = "Grounding",
-                    subtitle = "5-4-3-2-1 Tool",
-                    icon = Icons.Default.LocationOn,
-                    accentColor = CalmingGreen,
-                    modifier = Modifier.weight(1.2f),
-                    onClick = onOpenGrounding
-                )
-                PremiumQuickCard(
-                    title = "Music",
-                    subtitle = "Soothing",
-                    icon = Icons.Default.Star,
-                    accentColor = CalmingPeach,
-                    modifier = Modifier.weight(0.8f),
-                    onClick = onNavigateToCalm
-                )
-            }
-        }
+        )
         
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 7: SELF-DISCOVERY QUEST
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        SelfDiscoveryQuestCard(
+            progress = 0,
+            total = 3,
+            onClick = { /* Navigate to tests */ }
+        )
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 8: TEST RESULTS OVERVIEW
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        TestResultsSection(
+            completedCount = 0,
+            totalTests = 37,
+            tests = testPreviews,
+            onTestClick = { /* Navigate to test */ },
+            onViewAll = { /* Navigate to all tests */ }
+        )
+        
+        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // SECTION 9: UPLIFTING QUIZZES
+        // ═══════════════════════════════════════════════════════════════════════
+        
+        UpliftingQuizzesSection(
+            quizzes = quizzes,
+            onQuizClick = { /* Navigate to quiz */ }
+        )
+        
+        // Bottom padding for navigation bar
         Spacer(modifier = Modifier.height(120.dp))
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-@Composable
-private fun getGreeting(): String {
-    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    return when {
-        hour < 12 -> "Good Morning,"
-        hour < 17 -> "Good Afternoon,"
-        else -> "Good Evening,"
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// PREMIUM COMPONENTS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-@Composable
-private fun PremiumMoodSelector() {
-    val moods = listOf("😔", "😐", "🙂", "😊", "🤩")
-    val moodLabels = listOf("Sad", "Meh", "Okay", "Good", "Great")
-    var selectedMood by remember { mutableIntStateOf(-1) }
-    
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        moods.forEachIndexed { index, mood ->
-            val isSelected = selectedMood == index
-            
-            val scale by animateFloatAsState(
-                targetValue = if (isSelected) 1.15f else 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
-                label = "moodScale$index"
-            )
-            
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .scale(scale)
-                        .clip(CircleShape)
-                        .background(
-                            if (isSelected) MutedTeal.copy(alpha = 0.2f)
-                            else DeepSurface.copy(alpha = 0.5f)
-                        )
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) MutedTeal else Color.White.copy(alpha = 0.05f),
-                            shape = CircleShape
-                        )
-                        .clickable { selectedMood = index },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = mood, fontSize = 24.sp)
-                }
-                
-                AnimatedVisibility(visible = isSelected) {
-                    Text(
-                        text = moodLabels[index],
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MutedTeal,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PremiumChatCard(onClick: () -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "chatCardScale"
-    )
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(120.dp)
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
-        shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color(0xFF1E2835),
-                            Color(0xFF151A22)
-                        )
-                    )
-                )
-                .border(
-                    1.dp,
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.1f),
-                            Color.White.copy(alpha = 0.02f)
-                        )
-                    ),
-                    RoundedCornerShape(ArouraSpacing.cardRadius.dp)
-                )
-        ) {
-            // Glow accent
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .offset(x = 40.dp)
-                    .size(120.dp)
-                    .background(SoftBlue.copy(alpha = 0.15f), CircleShape)
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(ArouraSpacing.cardPadding.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    SoftBlue.copy(alpha = 0.25f),
-                                    MutedTeal.copy(alpha = 0.15f)
-                                )
-                            ),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Email,
-                        contentDescription = null,
-                        tint = SoftBlue
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(ArouraSpacing.md.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Talk to Aroura",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = OffWhite,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "I'm here to listen, anytime.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextDarkSecondary
-                    )
-                }
-                
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = TextDarkSecondary
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PremiumQuickCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    accentColor: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "quickCardScale"
-    )
-    
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
-        shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.12f),
-                            accentColor.copy(alpha = 0.04f)
-                        )
-                    )
-                )
-                .border(
-                    1.dp,
-                    accentColor.copy(alpha = 0.15f),
-                    RoundedCornerShape(ArouraSpacing.cardRadius.dp)
-                )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(ArouraSpacing.md.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(accentColor.copy(alpha = 0.15f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = OffWhite,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextDarkSecondary,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-        }
     }
 }
 

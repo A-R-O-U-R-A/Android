@@ -224,6 +224,150 @@ fun ReflectTestCard(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// SQUARE TEST CARD - Horizontal scrollable layout
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+fun ReflectTestCardSquare(
+    test: ReflectTest,
+    isCompleted: Boolean = false,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "squareCardScale"
+    )
+    
+    val accentColor = Color(test.accentColorHex)
+    
+    // Subtle glow animation
+    val infiniteTransition = rememberInfiniteTransition(label = "squareGlow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.15f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowPulse"
+    )
+
+    Box(
+        modifier = modifier
+            .size(160.dp)
+            .scale(scale)
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = 0.12f),
+                        DeepSurface.copy(alpha = 0.8f),
+                        DeepSurface.copy(alpha = 0.6f)
+                    )
+                )
+            )
+            .border(
+                width = 1.5.dp,
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        accentColor.copy(alpha = glowAlpha),
+                        accentColor.copy(alpha = 0.1f),
+                        Color.Transparent
+                    )
+                ),
+                shape = RoundedCornerShape(24.dp)
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) { onClick() }
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Completed badge
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                if (isCompleted) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(MutedTeal.copy(alpha = 0.25f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            null,
+                            tint = MutedTeal,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+            
+            // Icon
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .background(accentColor.copy(alpha = 0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = getTestIcon(test.iconName),
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+            
+            // Title
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = test.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = OffWhite,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 18.sp
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Duration badge
+                Box(
+                    modifier = Modifier
+                        .background(
+                            accentColor.copy(alpha = 0.15f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "${test.estimatedMinutes.first}-${test.estimatedMinutes.last} min",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accentColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // GET STARTED SCREEN COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════════
 

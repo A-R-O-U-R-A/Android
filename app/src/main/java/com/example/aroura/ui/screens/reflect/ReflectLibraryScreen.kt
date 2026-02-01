@@ -3,10 +3,12 @@ package com.example.aroura.ui.screens.reflect
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,7 +25,7 @@ import com.example.aroura.data.ReflectTestId
 import com.example.aroura.data.ReflectTestRepository
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.components.reflect.ReflectSectionHeader
-import com.example.aroura.ui.components.reflect.ReflectTestCard
+import com.example.aroura.ui.components.reflect.ReflectTestCardSquare
 import com.example.aroura.ui.theme.*
 
 /**
@@ -147,30 +149,38 @@ fun ReflectLibraryScreen(
                     Spacer(modifier = Modifier.height(ArouraSpacing.sm.dp))
                 }
                 
-                // Tests in this section
-                itemsIndexed(testsInSection) { testIndex, test ->
-                    val testDelay = sectionDelay + 50 + (testIndex * 40)
-                    
+                // Horizontal scrollable row of square test cards
+                item {
                     AnimatedVisibility(
                         visible = visible,
-                        enter = fadeIn(tween(350, delayMillis = testDelay)) + slideInVertically(
-                            initialOffsetY = { 20 },
-                            animationSpec = tween(350, delayMillis = testDelay, easing = EaseOutCubic)
+                        enter = fadeIn(tween(400, delayMillis = sectionDelay + 50)) + slideInHorizontally(
+                            initialOffsetX = { 50 },
+                            animationSpec = tween(400, delayMillis = sectionDelay + 50, easing = EaseOutCubic)
                         )
                     ) {
-                        ReflectTestCard(
-                            test = test,
-                            isCompleted = completedTests.contains(test.id),
-                            onClick = { onTestClick(test.id) }
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            testsInSection.forEach { test ->
+                                ReflectTestCardSquare(
+                                    test = test,
+                                    isCompleted = completedTests.contains(test.id),
+                                    onClick = { onTestClick(test.id) }
+                                )
+                            }
+                        }
                     }
                     
-                    Spacer(modifier = Modifier.height(ArouraSpacing.sm.dp))
+                    Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
                 }
                 
                 // Section spacing
                 item {
-                    Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
+                    Spacer(modifier = Modifier.height(ArouraSpacing.sm.dp))
                 }
             }
         }
