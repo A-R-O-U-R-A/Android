@@ -40,7 +40,8 @@ enum class ReflectOption {
     MoodCheckIn,
     Journal,
     GuidedReflection,
-    EmotionTracker
+    EmotionTracker,
+    Assessments
 }
 
 /**
@@ -64,6 +65,13 @@ fun ReflectMenuScreen(onNavigate: (ReflectOption) -> Unit, onProfileClick: () ->
             Icons.Default.Face,
             CalmingPeach,
             ReflectOption.MoodCheckIn
+        ),
+        ReflectOptionData(
+            "Self-Discovery Tests",
+            "37+ psychological assessments",
+            Icons.Default.Star,
+            CalmingLavender,
+            ReflectOption.Assessments
         ),
         ReflectOptionData(
             "Journal Your Thoughts",

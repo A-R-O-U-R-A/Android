@@ -37,6 +37,9 @@ import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.components.ArouraCard
 import com.example.aroura.ui.components.ArouraSectionTitle
 import com.example.aroura.ui.theme.*
+import com.example.aroura.data.ReflectTestId
+import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
+import com.example.aroura.ui.screens.reflect.TestFlowScreen
 
 /**
  * Home Screen - Main Entry Point
@@ -64,6 +67,8 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
     
     // Reflect States
     var reflectNavigationState by remember { mutableStateOf("menu") }
+    var currentTestId by remember { mutableStateOf<ReflectTestId?>(null) }
+    var completedTests by remember { mutableStateOf(setOf<ReflectTestId>()) }
     
     // Support States
     var supportNavigationState by remember { mutableStateOf("menu") }
@@ -234,10 +239,28 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                                             ReflectOption.Journal -> "journal"
                                             ReflectOption.GuidedReflection -> "guided"
                                             ReflectOption.EmotionTracker -> "tracker"
+                                            ReflectOption.Assessments -> "library"
                                         }
                                     },
                                     onProfileClick = openProfile
                                 )
+                                "library" -> ReflectLibraryScreen(
+                                    completedTests = completedTests,
+                                    onBack = { reflectNavigationState = "menu" },
+                                    onTestClick = { testId ->
+                                        currentTestId = testId
+                                        reflectNavigationState = "test_flow"
+                                    }
+                                )
+                                "test_flow" -> currentTestId?.let { testId ->
+                                    TestFlowScreen(
+                                        testId = testId,
+                                        onBack = { reflectNavigationState = "library" },
+                                        onComplete = { result ->
+                                            completedTests = completedTests + result.testId
+                                        }
+                                    )
+                                } ?: run { reflectNavigationState = "library" }
                                 "mood" -> MoodCheckInScreen(onBack = { reflectNavigationState = "menu" })
                                 "journal" -> JournalScreen(
                                     onBack = { reflectNavigationState = "menu" },
