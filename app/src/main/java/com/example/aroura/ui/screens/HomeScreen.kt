@@ -1,27 +1,26 @@
 package com.example.aroura.ui.screens
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +39,7 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
     var currentMediaItem by remember { mutableStateOf<CalmMediaItem?>(null) }
     var reflectNavigationState by remember { mutableStateOf("menu") }
     var showProfile by remember { mutableStateOf(false) }
+    var showBreathingScreen by remember { mutableStateOf(false) }
 
     // Helper to switch to chat tab
     val navigateToChatTab = {
@@ -47,13 +47,23 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
         chatScreenState = "selection"
     }
     
+    // Helper to switch to calm tab
+    val navigateToCalmTab = {
+        selectedTab = 2
+        calmNavigationState = "list"
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AdvancedAuroraBackground()
 
-        if (showProfile) {
-            // Overlay Profile Screen
-            // Z-index 1 (highest)
-            Box(modifier = Modifier.fillMaxSize()) { // Wrap to ensure it's on top if using Box children order
+        if (showBreathingScreen) {
+            // Fullscreen Breathing Overlay
+            // Z-index high
+             Box(modifier = Modifier.fillMaxSize()) {
+                 BreathingScreen(onClose = { showBreathingScreen = false })
+             }
+        } else if (showProfile) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 ProfileScreen(onBack = { showProfile = false })
             }
         } else {
@@ -90,7 +100,13 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
                         )
                 ) {
                     when(selectedTab) {
-                        0 -> HomeContent(onNavigateToChat = navigateToChatTab, onProfileClick = { showProfile = true }) 
+                        0 -> HomeContent(
+                            onNavigateToChat = navigateToChatTab, 
+                            onNavigateToCalm = navigateToCalmTab,
+                            onNavigateToSupport = { selectedTab = 4 },
+                            onOpenBreathing = { showBreathingScreen = true },
+                            onProfileClick = { showProfile = true }
+                        ) 
                         1 -> {
                             if (chatScreenState == "selection") {
                                 ChatSelectionScreen(
@@ -151,154 +167,225 @@ fun HomeScreen(onNavigateToChat: () -> Unit) {
 // --- HOME CONTENT ---
 
 @Composable
-fun HomeContent(onNavigateToChat: () -> Unit, onProfileClick: () -> Unit) {
+fun HomeContent(
+    onNavigateToChat: () -> Unit, 
+    onNavigateToCalm: () -> Unit,
+    onNavigateToSupport: () -> Unit,
+    onOpenBreathing: () -> Unit,
+    onProfileClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Header with Profile
-        Box(modifier = Modifier.fillMaxWidth()) {
-            IconButton(
-                onClick = onProfileClick,
-                modifier = Modifier.align(Alignment.CenterStart)
-            ) {
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = "Good Morning,", // Dynamic greeting could go here
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = TextDarkSecondary
+                )
+                Text(
+                    text = "Sarah", // Dynamic Name
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = OffWhite,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            IconButton(onClick = onProfileClick) {
                  Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(40.dp)
                         .background(DeepSurface, CircleShape)
                         .border(1.dp, MutedTeal.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Person, "Profile", tint = OffWhite, modifier = Modifier.size(20.dp))
                 }
-            }
-            
-            Column(modifier = Modifier.align(Alignment.Center)) {
-                Text(
-                    text = "A . R . O . U . R . A",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = OffWhite.copy(alpha = 0.9f),
-                    fontWeight = FontWeight.Light,
-                    letterSpacing = 4.sp,
-                    textAlign = TextAlign.Center
-                )
             }
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
+        // Mood Check-in
         Text(
-            text = "How are you feeling right now?",
-            style = MaterialTheme.typography.bodyLarge,
-            color = TextDarkSecondary,
-            fontSize = 18.sp
+            text = "How are you feeling?",
+            style = MaterialTheme.typography.titleMedium,
+            color = OffWhite,
+            modifier = Modifier.fillMaxWidth()
         )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 2. Mood Tracker (Mock Visual)
-        MoodTrackerBar()
+        Spacer(modifier = Modifier.height(16.dp))
+        MoodSelector()
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // 3. Bento Grid Layout
+        // --- MAIN ACTIONS GRID ---
+        
+        // 1. Instant Chat (Featured)
+        FeaturedChatCard(onClick = onNavigateToChat)
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 2. Bento Grid
         Row(
-            modifier = Modifier.fillMaxWidth().height(340.dp),
+            modifier = Modifier.fillMaxWidth().height(280.dp), // Fixed height for grid alignment
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // LEFT COLUMN (Tall Card)
-            BreathingCard(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-            )
-
-            // RIGHT COLUMN (Stacked Cards)
+            // Left Column (Breathing + Music)
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                DevotionalCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                // Breathing (Tall)
+                HomeCard(
+                    title = "Breathe",
+                    subtitle = "Relax now",
+                    icon = Icons.Default.FavoriteBorder, // Heart/Lungs
+                    color = Color(0xFF80CBC4), // Muted Teal
+                    modifier = Modifier.weight(1.5f),
+                    onClick = onOpenBreathing
                 )
-                GroundingCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
+                // Music (Short)
+                HomeCard(
+                    title = "Sounds",
+                    subtitle = "Nature & Ambient",
+                    icon = Icons.Default.PlayArrow,
+                    color = Color(0xFF9FA8DA), // Soft Indigo
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToCalm
+                )
+            }
+            
+            // Right Column (Panic + Grounding)
+            Column(
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Panic (Short) - High priority visual but small footprint
+                HomeCard(
+                    title = "Panic",
+                    subtitle = "Emergency",
+                    icon = Icons.Default.Warning,
+                    color = Color(0xFFEF9A9A), // Soft Red
+                    modifier = Modifier.weight(0.8f),
+                    onClick = onNavigateToSupport
+                )
+                
+                // Grounding (Tall)
+                HomeCard(
+                    title = "Grounding",
+                    subtitle = "5-4-3-2-1 Tool",
+                    icon = Icons.Default.LocationOn, // Anchor/Place
+                    color = Color(0xFFA5D6A7), // Soft Green
+                    modifier = Modifier.weight(1.2f),
+                    onClick = { /* TODO: Open Grounding */ }
+                )
+                 // Calm Music (Short)
+                HomeCard(
+                    title = "Music",
+                    subtitle = "Soothing",
+                    icon = Icons.Default.Star,
+                    color = Color(0xFFCE93D8), // Lavender
+                    modifier = Modifier.weight(0.8f),
+                    onClick = onNavigateToCalm
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 4. Panic / Support Bar
-        PanicSupportBar()
-
-        Spacer(modifier = Modifier.height(100.dp)) // Bottom padding for nav bar
+        Spacer(modifier = Modifier.height(100.dp))
     }
 }
 
 @Composable
-fun MoodTrackerBar() {
-    Box(
+fun FeaturedChatCard(onClick: () -> Unit) {
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp)
-            .background(DeepSurface.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
-            .padding(horizontal = 4.dp),
-        contentAlignment = Alignment.CenterStart
+            .height(110.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
-        // Track Line
-        Canvas(modifier = Modifier.fillMaxWidth().height(4.dp).padding(horizontal = 16.dp)) {
-            drawLine(
-                color = TextDarkSecondary.copy(alpha = 0.2f),
-                start = Offset(0f, center.y),
-                end = Offset(size.width, center.y),
-                strokeWidth = 4f,
-                cap = StrokeCap.Round
-            )
-        }
-        
-        // Selected Indicator (Mock)
         Box(
             modifier = Modifier
-                .padding(start = 12.dp)
-                .size(36.dp)
-                .background(OffWhite, CircleShape)
-                .border(2.dp, MutedTeal.copy(alpha = 0.5f), CircleShape)
-        )
-        
-        // Progress Text
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF2E3B4E), // Dark Blue Grey
+                            Color(0xFF21252B)
+                        )
+                    )
+                )
+                .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(24.dp))
         ) {
-            Icon(
-                imageVector = Icons.Default.Star, 
-                contentDescription = null, 
-                tint = MutedTeal, 
-                modifier = Modifier.size(16.dp)
+             // Glow
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .offset(x = 30.dp)
+                    .size(100.dp)
+                    .background(SoftBlue.copy(alpha = 0.2f), CircleShape)
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = "3/3", color = TextDarkSecondary, style = MaterialTheme.typography.labelMedium)
+
+            Row(
+                modifier = Modifier.fillMaxSize().padding(24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(SoftBlue.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                     Icon(
+                        imageVector = Icons.Default.Email, // Chat Icon
+                        contentDescription = null,
+                        tint = SoftBlue
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                Column {
+                    Text(
+                        text = "Talk to Aroura",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = OffWhite,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "I'm here to listen.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextDarkSecondary
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-fun BreathingCard(modifier: Modifier = Modifier) {
+fun HomeCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = modifier,
+        modifier = modifier.clickable { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent)
     ) {
@@ -308,89 +395,46 @@ fun BreathingCard(modifier: Modifier = Modifier) {
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF1E2830), // Dark Blue Grey
-                            Color(0xFF101418)  // Almost Black
+                            color.copy(alpha = 0.15f),
+                            color.copy(alpha = 0.05f)
                         )
                     )
                 )
+                .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
         ) {
-            // Background Glow (Teal)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .size(150.dp)
-                    .offset(x = (-40).dp, y = 40.dp)
-                    // .blur(60.dp) // Removed blur for compatibility safety, using gradient brush instead if needed, but keeping simple for now
-                    .background(MutedTeal.copy(alpha = 0.3f), CircleShape)
-            )
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "CALM YOUR BREATH",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextDarkSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Follow your breath",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OffWhite,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Follow the breathing exercise.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextDarkSecondary.copy(alpha = 0.7f),
-                    fontSize = 12.sp
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Visual Breathing Circle
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.size(100.dp)) {
-                        drawCircle(
-                            color = MutedTeal.copy(alpha = 0.2f),
-                            style = Stroke(width = 2.dp.toPx())
-                        )
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(MutedTeal.copy(alpha = 0.6f), Color.Transparent)
-                            ),
-                            radius = 30.dp.toPx()
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Begin Button
-                Button(
-                    onClick = { /* TODO */ },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DeepSurface.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(22.dp)
+                        .size(32.dp)
+                        .background(color.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlayArrow,
+                        imageVector = icon,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MutedTeal
+                        tint = color,
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Begin", color = OffWhite)
+                }
+                
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = OffWhite,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextDarkSecondary,
+                        fontSize = 10.sp
+                    )
                 }
             }
         }
@@ -398,233 +442,24 @@ fun BreathingCard(modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun DevotionalCard(modifier: Modifier = Modifier) {
-    val devotionalGold = Color(0xFFFFB74D) // Warm Orange/Gold
-
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+fun MoodSelector() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF2D2420), // Dark Warm Grey
-                            Color(0xFF181210)  // Darker Warm
-                        )
-                    )
-                )
-        ) {
-            // Lamp Glow Effect
+        val moods = listOf(
+            "😔", "😐", "🙂", "😊", "🤩"
+        )
+        
+        moods.forEach { mood ->
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(120.dp)
-                    .offset(x = 20.dp, y = 20.dp)
-                    // .blur(50.dp)
-                    .background(devotionalGold.copy(alpha = 0.4f), CircleShape)
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
+                    .size(56.dp)
+                    .background(DeepSurface.copy(alpha = 0.5f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.05f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "DEVOTIONAL CALM",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextDarkSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Listen to devotional music",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = OffWhite,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Small Action Chip
-                Surface(
-                    color = DeepSurface.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow, // Using PlayArrow as generic listen icon
-                            contentDescription = null,
-                            tint = devotionalGold,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "Explore", color = OffWhite, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun GroundingCard(modifier: Modifier = Modifier) {
-    val natureGreen = Color(0xFFA5D6A7)
-
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF202824), // Dark Greenish Grey
-                            Color(0xFF0F1412)
-                        )
-                    )
-                )
-        ) {
-            // Stone/Nature Glow
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(100.dp)
-                    .offset(x = 20.dp, y = 20.dp)
-                    // .blur(40.dp)
-                    .background(natureGreen.copy(alpha = 0.3f), CircleShape)
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp)
-            ) {
-                Text(
-                    text = "GROUND YOURSELF",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextDarkSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Try a 5-4-3-2-1 grounding",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = OffWhite,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Small Action Chip
-                Surface(
-                    color = DeepSurface.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.height(32.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Favorite, // Using Heart/Favorite as nature/care
-                            contentDescription = null,
-                            tint = natureGreen,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = "Start", color = OffWhite, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PanicSupportBar() {
-    val panicGradient = Brush.horizontalGradient(
-        colors = listOf(
-            Color(0xFF4E342E), // Deep muted red/brown
-            Color(0xFF3E2723)
-        )
-    )
-    val buttonGradient = Brush.horizontalGradient(
-        colors = listOf(
-            Color(0xFFD84315), // Orange/Red
-            Color(0xFFFF8A65)  // Light Orange
-        )
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .background(panicGradient, RoundedCornerShape(24.dp))
-            .border(1.dp, Color(0xFF5D4037), RoundedCornerShape(24.dp))
-            .padding(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "PANIC BUTTON",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextDarkSecondary
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Tap for quick help",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = OffWhite,
-                    fontWeight = FontWeight.Normal
-                )
-            }
-
-            Button(
-                onClick = { /* TODO */ },
-                modifier = Modifier
-                    .height(48.dp)
-                    .width(160.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent
-                ),
-                contentPadding = PaddingValues(0.dp),
-                shape = RoundedCornerShape(24.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(buttonGradient, RoundedCornerShape(24.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Get Support",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                Text(text = mood, fontSize = 24.sp)
             }
         }
     }

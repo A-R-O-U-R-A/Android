@@ -20,7 +20,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             ArouraTheme {
                 // Simple Navigation State
-                var currentScreen by remember { mutableStateOf("welcome") }
+                // DEV MODE: Skip to "home" directly
+                var currentScreen by remember { mutableStateOf("home") }
 
                 when (currentScreen) {
                     "welcome" -> WelcomeScreen(
