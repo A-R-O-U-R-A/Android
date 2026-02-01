@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
@@ -105,7 +106,7 @@ fun CalmScreen(
                             onClick = { showFilter = true },
                             modifier = Modifier.align(Alignment.CenterEnd)
                         ) {
-                            Icon(Icons.Default.List, contentDescription = "Filter", tint = OffWhite)
+                            Icon(Icons.Default.Menu, contentDescription = "Filter", tint = OffWhite)
                         }
                     }
                     Text(
