@@ -42,7 +42,8 @@ import com.example.aroura.ui.theme.*
 fun SupportScreen(
     onProfileClick: () -> Unit,
     onNavigate: (String) -> Unit,
-    onOpenPanic: () -> Unit
+    onOpenPanic: () -> Unit,
+    profilePictureUrl: String? = null
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -65,6 +66,10 @@ fun SupportScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                ArouraProfileIcon(
+                    onClick = onProfileClick,
+                    profilePictureUrl = profilePictureUrl
+                )
                 AnimatedVisibility(
                     visible = visible,
                     enter = fadeIn(tween(400)) + slideInHorizontally(
@@ -79,7 +84,7 @@ fun SupportScreen(
                         fontWeight = FontWeight.Light
                     )
                 }
-                ArouraProfileIcon(onClick = onProfileClick)
+                Spacer(modifier = Modifier.size(44.dp)) // Balance for profile icon width
             }
             
             Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))

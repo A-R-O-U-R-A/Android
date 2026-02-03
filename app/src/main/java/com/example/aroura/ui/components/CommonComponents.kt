@@ -23,10 +23,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.aroura.ui.theme.*
 
 /**
@@ -42,13 +46,16 @@ import com.example.aroura.ui.theme.*
  * Unified Profile Icon Component
  * Size: 44dp (touch target compliant)
  * Style: Circular with subtle border glow
+ * Supports profile picture URL or falls back to icon
  */
 @Composable
 fun ArouraProfileIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 44.dp
+    size: Dp = 44.dp,
+    profilePictureUrl: String? = null
 ) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
@@ -91,12 +98,26 @@ fun ArouraProfileIcon(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = Icons.Default.Person,
-            contentDescription = "Profile",
-            tint = OffWhite,
-            modifier = Modifier.size(size * 0.5f)
-        )
+        if (profilePictureUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(profilePictureUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Profile",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Profile",
+                tint = OffWhite,
+                modifier = Modifier.size(size * 0.5f)
+            )
+        }
     }
 }
 

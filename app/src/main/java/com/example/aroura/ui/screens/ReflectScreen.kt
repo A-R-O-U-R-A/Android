@@ -54,7 +54,11 @@ enum class ReflectOption {
  * - Unified spacing
  */
 @Composable
-fun ReflectMenuScreen(onNavigate: (ReflectOption) -> Unit, onProfileClick: () -> Unit) {
+fun ReflectMenuScreen(
+    onNavigate: (ReflectOption) -> Unit, 
+    onProfileClick: () -> Unit,
+    profilePictureUrl: String? = null
+) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
@@ -113,7 +117,10 @@ fun ReflectMenuScreen(onNavigate: (ReflectOption) -> Unit, onProfileClick: () ->
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ArouraProfileIcon(onClick = onProfileClick)
+                ArouraProfileIcon(
+                    onClick = onProfileClick,
+                    profilePictureUrl = profilePictureUrl
+                )
                 
                 AnimatedVisibility(
                     visible = visible,

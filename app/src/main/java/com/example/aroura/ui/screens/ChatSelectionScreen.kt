@@ -45,7 +45,11 @@ import kotlin.math.sin
  * - Gentle visual hierarchy
  */
 @Composable
-fun ChatSelectionScreen(onChatSelected: (String) -> Unit, onProfileClick: () -> Unit) {
+fun ChatSelectionScreen(
+    onChatSelected: (String) -> Unit, 
+    onProfileClick: () -> Unit,
+    profilePictureUrl: String? = null
+) {
     // Staggered entrance animations
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -65,7 +69,10 @@ fun ChatSelectionScreen(onChatSelected: (String) -> Unit, onProfileClick: () -> 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            ArouraProfileIcon(onClick = onProfileClick)
+            ArouraProfileIcon(
+                onClick = onProfileClick,
+                profilePictureUrl = profilePictureUrl
+            )
             
             // Subtle mode indicator
             Surface(

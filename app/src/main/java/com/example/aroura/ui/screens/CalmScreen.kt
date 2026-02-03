@@ -73,7 +73,8 @@ val relaxationItems = listOf(
 fun CalmScreen(
     onItemClick: (CalmMediaItem) -> Unit, 
     onViewAllClick: (String, List<CalmMediaItem>) -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    profilePictureUrl: String? = null
 ) {
     var showFilter by remember { mutableStateOf(false) }
     var visible by remember { mutableStateOf(false) }
@@ -97,7 +98,10 @@ fun CalmScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ArouraProfileIcon(onClick = onProfileClick)
+                    ArouraProfileIcon(
+                        onClick = onProfileClick,
+                        profilePictureUrl = profilePictureUrl
+                    )
                     
                     AnimatedVisibility(
                         visible = visible,

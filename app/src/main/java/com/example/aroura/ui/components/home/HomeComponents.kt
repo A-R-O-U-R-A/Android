@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -40,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.aroura.ui.theme.*
 
 /**
@@ -60,7 +64,8 @@ import com.example.aroura.ui.theme.*
 fun GreetingSection(
     userName: String,
     onProfileClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    profilePictureUrl: String? = null
 ) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val greeting = when {
@@ -74,7 +79,19 @@ fun GreetingSection(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column {
+        // Profile button on the left for consistency
+        PremiumProfileButton(
+            onClick = onProfileClick,
+            profilePictureUrl = profilePictureUrl
+        )
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        // Greeting text on the right, fills remaining space
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.End
+        ) {
             Text(
                 text = greeting,
                 style = MaterialTheme.typography.bodyLarge,
@@ -89,17 +106,16 @@ fun GreetingSection(
                 fontWeight = FontWeight.SemiBold
             )
         }
-        
-        // Premium profile button
-        PremiumProfileButton(onClick = onProfileClick)
     }
 }
 
 @Composable
 fun PremiumProfileButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    profilePictureUrl: String? = null
 ) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
@@ -134,12 +150,26 @@ fun PremiumProfileButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            Icons.Default.Person,
-            contentDescription = "Profile",
-            tint = OffWhite,
-            modifier = Modifier.size(22.dp)
-        )
+        if (profilePictureUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(profilePictureUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Profile",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = "Profile",
+                tint = OffWhite,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
 

@@ -41,6 +41,7 @@ import com.example.aroura.ui.theme.*
 import com.example.aroura.data.ReflectTestId
 import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
 import com.example.aroura.ui.screens.reflect.TestFlowScreen
+import com.example.aroura.ui.viewmodels.ProfileViewModel
 
 /**
  * Home Screen - Main Entry Point
@@ -54,11 +55,20 @@ import com.example.aroura.ui.screens.reflect.TestFlowScreen
  */
 @Composable
 fun HomeScreen(
+    profileViewModel: ProfileViewModel,
     onNavigateToChat: () -> Unit,
     onNavigateToCalmAnxiety: () -> Unit = {},
     onNavigateToMoodJournal: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    
+    // Collect user profile data
+    val userProfile by profileViewModel.userProfile.collectAsState()
+    
+    // Load profile if not loaded yet
+    LaunchedEffect(Unit) {
+        profileViewModel.loadProfile()
+    }
     
     // Navigation States
     var chatScreenState by remember { mutableStateOf("selection") }
@@ -133,6 +143,7 @@ fun HomeScreen(
             Box(modifier = Modifier.fillMaxSize().zIndex(8f)) {
                 when (profileNavigationState) {
                     "menu" -> ProfileScreen(
+                        profileViewModel = profileViewModel,
                         onBack = { showProfile = false },
                         onNavigate = { dest -> profileNavigationState = dest },
                         onLogout = onNavigateToChat // This triggers navigation back to Welcome screen
@@ -180,6 +191,8 @@ fun HomeScreen(
                 ) {
                     when(selectedTab) {
                         0 -> HomeContent(
+                            userName = userProfile?.displayName ?: userProfile?.firstName ?: "Friend",
+                            profilePictureUrl = userProfile?.profilePicture,
                             onNavigateToChat = navigateToChatTab, 
                             onNavigateToCalm = navigateToCalmTab,
                             onNavigateToSupport = navigateToSupportTab,
@@ -197,7 +210,8 @@ fun HomeScreen(
                                         chatMode = mode
                                         chatScreenState = "chatting" 
                                     },
-                                    onProfileClick = openProfile
+                                    onProfileClick = openProfile,
+                                    profilePictureUrl = userProfile?.profilePicture
                                 )
                             } else {
                                 ChatScreen(
@@ -218,7 +232,8 @@ fun HomeScreen(
                                         currentAudioList = items
                                         calmNavigationState = "audio_list"
                                     },
-                                    onProfileClick = openProfile
+                                    onProfileClick = openProfile,
+                                    profilePictureUrl = userProfile?.profilePicture
                                 )
                                 "player" -> currentMediaItem?.let { item ->
                                     CalmPlayerScreen(
@@ -249,7 +264,8 @@ fun HomeScreen(
                                             ReflectOption.Assessments -> "library"
                                         }
                                     },
-                                    onProfileClick = openProfile
+                                    onProfileClick = openProfile,
+                                    profilePictureUrl = userProfile?.profilePicture
                                 )
                                 "library" -> ReflectLibraryScreen(
                                     completedTests = completedTests,
@@ -283,7 +299,8 @@ fun HomeScreen(
                                 "menu" -> SupportScreen(
                                     onProfileClick = openProfile,
                                     onNavigate = { dest -> supportNavigationState = dest },
-                                    onOpenPanic = { showPanicScreen = true }
+                                    onOpenPanic = { showPanicScreen = true },
+                                    profilePictureUrl = userProfile?.profilePicture
                                 )
                                 "helplines" -> HelplineScreen(onBack = { supportNavigationState = "menu" })
                                 "psychiatrist" -> PsychiatristContactScreen(onBack = { supportNavigationState = "menu" })
@@ -304,6 +321,8 @@ fun HomeScreen(
 
 @Composable
 fun HomeContent(
+    userName: String = "Friend",
+    profilePictureUrl: String? = null,
     onNavigateToChat: () -> Unit, 
     onNavigateToCalm: () -> Unit,
     onNavigateToSupport: () -> Unit,
@@ -364,8 +383,9 @@ fun HomeContent(
         // ═══════════════════════════════════════════════════════════════════════
         
         GreetingSection(
-            userName = "Sarah",
-            onProfileClick = onProfileClick
+            userName = userName,
+            onProfileClick = onProfileClick,
+            profilePictureUrl = profilePictureUrl
         )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))

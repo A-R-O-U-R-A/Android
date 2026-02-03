@@ -1,32 +1,36 @@
 package com.example.aroura.ui.screens
 
+import android.util.Log
 import android.util.Patterns
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -36,22 +40,31 @@ import androidx.compose.ui.unit.sp
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.components.ArouraPrimaryButton
 import com.example.aroura.ui.theme.*
+import com.example.aroura.ui.viewmodels.AuthState
+import com.example.aroura.ui.viewmodels.AuthViewModel
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private const val TAG = "LoginScreen"
+
 /**
- * Login / Signup Screen
+ * Login / Signup Screen - Connected to Backend
  * 
- * Premium social-first authentication flow
- * Features:
- * - Initial view: Social auth options (Google, Facebook, Email)
- * - "Continue with Email" reveals email form with smooth animation
- * - Continuous aurora background (foreground remains stable)
- * - Toggle between Login/Signup modes
- * - Calm, never rushed transitions
+ * Premium social-first authentication flow with:
+ * - Email/Password login & registration
+ * - Google Sign-In
+ * - Facebook Login
+ * - Real-time error handling
+ * - Loading states
  */
 @Composable
 fun LoginScreen(
+    viewModel: AuthViewModel,
     onLoginSuccess: () -> Unit,
     onBack: () -> Unit = {}
 ) {
@@ -59,7 +72,16 @@ fun LoginScreen(
     // STATE MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // View state: "social" shows social buttons, "email" shows email form
+    val context = LocalContext.current
+    val activity = context as? ComponentActivity
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    
+    // Auth state from ViewModel
+    val authState by viewModel.authState.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    
+    // View state
     var viewState by remember { mutableStateOf("social") }
     var isLogin by remember { mutableStateOf(true) }
     
@@ -76,13 +98,66 @@ fun LoginScreen(
     
     // UI state
     var isVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Facebook callback manager
+    val callbackManager = remember { CallbackManager.Factory.create() }
+    
+    // Register Facebook callback
+    DisposableEffect(Unit) {
+        LoginManager.getInstance().registerCallback(
+            callbackManager,
+            object : FacebookCallback<LoginResult> {
+                override fun onSuccess(result: LoginResult) {
+                    Log.d(TAG, "Facebook login success")
+                    result.accessToken?.token?.let { token ->
+                        viewModel.handleFacebookSignInResult(token)
+                    }
+                }
+                
+                override fun onCancel() {
+                    Log.d(TAG, "Facebook login cancelled")
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Facebook login cancelled")
+                    }
+                }
+                
+                override fun onError(error: FacebookException) {
+                    Log.e(TAG, "Facebook login error", error)
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            error.message ?: "Facebook login failed"
+                        )
+                    }
+                }
+            }
+        )
+        
+        onDispose {
+            LoginManager.getInstance().unregisterCallback(callbackManager)
+        }
+    }
     
     LaunchedEffect(Unit) {
         delay(200)
         isVisible = true
+    }
+    
+    // Handle auth state changes
+    LaunchedEffect(authState) {
+        when (val state = authState) {
+            is AuthState.Authenticated -> {
+                val message = if (state.isNewUser) "Welcome to A.R.O.U.R.A!" else "Welcome back!"
+                snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+                delay(500)
+                onLoginSuccess()
+            }
+            is AuthState.Error -> {
+                snackbarHostState.showSnackbar(state.message, duration = SnackbarDuration.Long)
+                viewModel.clearError()
+            }
+            else -> {}
+        }
     }
     
     // Reset errors when switching modes
@@ -106,9 +181,21 @@ fun LoginScreen(
             emailError = null
         }
         
-        if (password.length < 6) {
-            passwordError = "Password must be at least 6 characters"
+        if (password.length < 8) {
+            passwordError = "Password must be at least 8 characters"
             isValid = false
+        } else if (!isLogin) {
+            // Stronger validation for registration
+            val hasUpper = password.any { it.isUpperCase() }
+            val hasLower = password.any { it.isLowerCase() }
+            val hasDigit = password.any { it.isDigit() }
+            
+            if (!hasUpper || !hasLower || !hasDigit) {
+                passwordError = "Must include uppercase, lowercase, and number"
+                isValid = false
+            } else {
+                passwordError = null
+            }
         } else {
             passwordError = null
         }
@@ -124,17 +211,44 @@ fun LoginScreen(
     }
     
     fun handleAuth() {
+        focusManager.clearFocus()
         if (validate()) {
+            if (isLogin) {
+                viewModel.login(email, password)
+            } else {
+                viewModel.register(email, password, name)
+            }
+        }
+    }
+    
+    fun handleGoogleSignIn() {
+        scope.launch {
+            Log.d(TAG, "Starting Google Sign-In")
+            viewModel.signInWithGoogle(context)
+                .onSuccess { result ->
+                    Log.d(TAG, "Google Sign-In credential received")
+                    viewModel.handleGoogleSignInResult(result)
+                }
+                .onFailure { error ->
+                    Log.e(TAG, "Google Sign-In failed", error)
+                    snackbarHostState.showSnackbar(
+                        error.message ?: "Google sign-in failed"
+                    )
+                }
+        }
+    }
+    
+    fun handleFacebookSignIn() {
+        Log.d(TAG, "Starting Facebook Sign-In")
+        activity?.let { act ->
+            LoginManager.getInstance().logInWithReadPermissions(
+                act as androidx.activity.result.ActivityResultRegistryOwner,
+                callbackManager,
+                listOf("email", "public_profile")
+            )
+        } ?: run {
             scope.launch {
-                isLoading = true
-                delay(1200) // Simulate API call
-                snackbarHostState.showSnackbar(
-                    message = if (isLogin) "Welcome back!" else "Account created!",
-                    duration = SnackbarDuration.Short
-                )
-                delay(400)
-                isLoading = false
-                onLoginSuccess()
+                snackbarHostState.showSnackbar("Unable to start Facebook login")
             }
         }
     }
@@ -144,7 +258,7 @@ fun LoginScreen(
     // ═══════════════════════════════════════════════════════════════════════════
     
     Box(modifier = Modifier.fillMaxSize()) {
-        // Premium Aurora Background (continuous, calming)
+        // Premium Aurora Background
         ArouraBackground()
         
         Scaffold(
@@ -243,7 +357,6 @@ fun LoginScreen(
                         targetState = viewState,
                         transitionSpec = {
                             if (targetState == "email") {
-                                // Entering email view
                                 (fadeIn(tween(500, delayMillis = 100)) + 
                                  slideInVertically(
                                      initialOffsetY = { it / 4 },
@@ -257,7 +370,6 @@ fun LoginScreen(
                                     animationSpec = tween(300)
                                 ))
                             } else {
-                                // Going back to social
                                 (fadeIn(tween(400)) + slideInVertically(
                                     initialOffsetY = { -it / 4 },
                                     animationSpec = tween(400)
@@ -273,8 +385,9 @@ fun LoginScreen(
                     ) { state ->
                         when (state) {
                             "social" -> SocialAuthContent(
-                                onGoogleClick = { onLoginSuccess() },
-                                onFacebookClick = { onLoginSuccess() },
+                                isLoading = isLoading,
+                                onGoogleClick = { handleGoogleSignIn() },
+                                onFacebookClick = { handleFacebookSignIn() },
                                 onEmailClick = { viewState = "email" }
                             )
                             "email" -> EmailAuthContent(
@@ -299,6 +412,21 @@ fun LoginScreen(
                 }
             }
         }
+        
+        // Loading overlay
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MidnightCharcoal.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = MutedTeal,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
     }
 }
 
@@ -308,6 +436,7 @@ fun LoginScreen(
 
 @Composable
 private fun SocialAuthContent(
+    isLoading: Boolean,
     onGoogleClick: () -> Unit,
     onFacebookClick: () -> Unit,
     onEmailClick: () -> Unit
@@ -322,8 +451,8 @@ private fun SocialAuthContent(
         // Google Button
         SocialAuthButton(
             text = "Continue with Google",
+            enabled = !isLoading,
             iconContent = {
-                // Google Icon (simplified)
                 Box(
                     modifier = Modifier
                         .size(22.dp)
@@ -344,6 +473,7 @@ private fun SocialAuthContent(
         // Facebook Button
         SocialAuthButton(
             text = "Continue with Facebook",
+            enabled = !isLoading,
             iconContent = {
                 Box(
                     modifier = Modifier
@@ -365,6 +495,7 @@ private fun SocialAuthContent(
         // Email Button
         SocialAuthButton(
             text = "Continue with Email",
+            enabled = !isLoading,
             iconContent = {
                 Icon(
                     imageVector = Icons.Default.Email,
@@ -394,6 +525,7 @@ private fun SocialAuthContent(
 @Composable
 private fun SocialAuthButton(
     text: String,
+    enabled: Boolean = true,
     iconContent: @Composable () -> Unit,
     onClick: () -> Unit
 ) {
@@ -414,10 +546,11 @@ private fun SocialAuthButton(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
+                enabled = enabled,
                 onClick = onClick
             ),
         shape = RoundedCornerShape(29.dp),
-        color = DeepSurface.copy(alpha = 0.7f),
+        color = DeepSurface.copy(alpha = if (enabled) 0.7f else 0.4f),
         border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
             width = 1.dp,
             brush = Brush.linearGradient(
@@ -440,7 +573,7 @@ private fun SocialAuthButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
-                color = OffWhite,
+                color = if (enabled) OffWhite else TextDarkTertiary,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -469,6 +602,8 @@ private fun EmailAuthContent(
     isLoading: Boolean,
     onSubmit: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
@@ -476,7 +611,8 @@ private fun EmailAuthContent(
         // Mode Toggle
         AuthModeToggle(
             isLogin = isLogin,
-            onToggle = onToggleMode
+            onToggle = onToggleMode,
+            enabled = !isLoading
         )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
@@ -487,7 +623,14 @@ private fun EmailAuthContent(
             onValueChange = onEmailChange,
             label = "Email Address",
             error = emailError,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                imeAction = ImeAction.Next
+            ),
+            keyboardActions = KeyboardActions(
+                onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            )
         )
         
         // Name Field (Signup only)
@@ -505,6 +648,11 @@ private fun EmailAuthContent(
                 onValueChange = onNameChange,
                 label = "Your Name",
                 error = nameError,
+                enabled = !isLoading,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                ),
                 modifier = Modifier.padding(top = ArouraSpacing.md.dp)
             )
         }
@@ -518,14 +666,25 @@ private fun EmailAuthContent(
             isPassword = true,
             passwordVisible = passwordVisible,
             onTogglePasswordVisibility = onTogglePasswordVisibility,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            enabled = !isLoading,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { 
+                    focusManager.clearFocus()
+                    onSubmit()
+                }
+            )
         )
         
         // Forgot Password (Login only)
         AnimatedVisibility(visible = isLogin) {
             TextButton(
                 onClick = { /* TODO: Forgot password */ },
-                modifier = Modifier.align(Alignment.End)
+                modifier = Modifier.align(Alignment.End),
+                enabled = !isLoading
             ) {
                 Text(
                     text = "Forgot Password?",
@@ -549,14 +708,15 @@ private fun EmailAuthContent(
 }
 
 @Composable
-private fun AuthModeToggle(
+private fun ColumnScope.AuthModeToggle(
     isLogin: Boolean,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    enabled: Boolean = true
 ) {
     Surface(
         color = DeepSurface.copy(alpha = 0.7f),
         shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.wrapContentWidth()
+        modifier = Modifier.align(Alignment.CenterHorizontally)
     ) {
         Row(
             modifier = Modifier.padding(4.dp),
@@ -565,13 +725,13 @@ private fun AuthModeToggle(
             AuthToggleTab(
                 text = "Login",
                 isSelected = isLogin,
-                onClick = { if (!isLogin) onToggle() }
+                onClick = { if (!isLogin && enabled) onToggle() }
             )
             Spacer(modifier = Modifier.width(4.dp))
             AuthToggleTab(
                 text = "Sign Up",
                 isSelected = !isLogin,
-                onClick = { if (isLogin) onToggle() }
+                onClick = { if (isLogin && enabled) onToggle() }
             )
         }
     }
@@ -621,7 +781,9 @@ private fun ArouraTextField(
     isPassword: Boolean = false,
     passwordVisible: Boolean = false,
     onTogglePasswordVisibility: (() -> Unit)? = null,
+    enabled: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
     modifier: Modifier = Modifier
 ) {
     val isError = error != null
@@ -638,16 +800,20 @@ private fun ArouraTextField(
             },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
+            enabled = enabled,
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = DeepSurface.copy(alpha = 0.8f),
                 unfocusedContainerColor = DeepSurface.copy(alpha = 0.5f),
+                disabledContainerColor = DeepSurface.copy(alpha = 0.3f),
                 errorContainerColor = DeepSurface.copy(alpha = 0.5f),
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
+                disabledIndicatorColor = Color.Transparent,
                 errorIndicatorColor = Color.Transparent,
                 cursorColor = MutedTeal,
                 focusedTextColor = OffWhite,
-                unfocusedTextColor = OffWhite
+                unfocusedTextColor = OffWhite,
+                disabledTextColor = TextDarkTertiary
             ),
             singleLine = true,
             isError = isError,
@@ -657,13 +823,13 @@ private fun ArouraTextField(
                 VisualTransformation.None
             },
             keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
             trailingIcon = if (isPassword && onTogglePasswordVisibility != null) {
                 {
-                    IconButton(onClick = onTogglePasswordVisibility) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Clear else Icons.Default.Lock,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                            tint = TextDarkSecondary
+                    IconButton(onClick = onTogglePasswordVisibility, enabled = enabled) {
+                        Text(
+                            text = if (passwordVisible) "🙈" else "👁️",
+                            fontSize = 18.sp
                         )
                     }
                 }
