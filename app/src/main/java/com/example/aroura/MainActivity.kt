@@ -22,6 +22,7 @@ import com.example.aroura.data.local.TokenManager
 import com.example.aroura.data.repository.UserRepository
 import com.example.aroura.ui.screens.HomeScreen
 import com.example.aroura.ui.screens.LoginScreen
+import com.example.aroura.ui.screens.SplashScreen
 import com.example.aroura.ui.screens.WelcomeScreen
 import com.example.aroura.ui.screens.calm.CalmAnxietyFlowScreen
 import com.example.aroura.ui.screens.mood.MoodJournalFlowScreen
@@ -37,115 +38,129 @@ import kotlinx.coroutines.launch
  * A.R.O.U.R.A - Main Activity
  * 
  * Premium mental health companion app with:
+ * - Fast splash screen for quick perceived startup
  * - Calm, professional UI
  * - Smooth screen transitions  
  * - Proper authentication flow
+ * 
+ * OPTIMIZED: Lazy initialization of heavy components
  */
 class MainActivity : ComponentActivity() {
+    
+    // Lazy initialization of managers/services outside compose
+    private val tokenManager by lazy { TokenManager(applicationContext) }
+    private val userApiService by lazy { ApiClient.createUserApiService(tokenManager) }
+    private val userRepository by lazy { UserRepository(userApiService, tokenManager, applicationContext) }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ArouraTheme {
-                // Create TokenManager and repositories
-                val tokenManager = remember { TokenManager(applicationContext) }
-                val userApiService = remember { ApiClient.createUserApiService(tokenManager) }
-                val userRepository = remember { UserRepository(userApiService, tokenManager, applicationContext) }
+                // Track splash state
+                var showSplash by remember { mutableStateOf(true) }
                 
-                // Create AuthViewModel with factory
-                val authViewModel: AuthViewModel = viewModel(
-                    factory = AuthViewModelFactory(application)
-                )
-                
-                // Create ProfileViewModel with factory
-                val profileViewModel: ProfileViewModel = viewModel(
-                    factory = ProfileViewModelFactory(application, userRepository)
-                )
-                
-                // Collect onboarding and login state
-                val hasCompletedOnboarding by tokenManager.hasCompletedOnboardingFlow.collectAsState(initial = false)
-                val isLoggedIn by tokenManager.isLoggedInFlow.collectAsState(initial = false)
-                
-                // Determine initial screen based on onboarding and login status
-                // - First time install: show welcome
-                // - Completed onboarding but logged out: show login
-                // - Logged in: show home
-                var currentScreen by remember { mutableStateOf("loading") }
-                
-                // Update screen based on auth state
-                LaunchedEffect(hasCompletedOnboarding, isLoggedIn) {
-                    currentScreen = when {
-                        !hasCompletedOnboarding -> "welcome"
-                        isLoggedIn -> "home"
-                        else -> "login"
-                    }
-                }
-
-                // Smooth crossfade transition between screens
-                AnimatedContent(
-                    targetState = currentScreen,
-                    transitionSpec = {
-                        fadeIn(
-                            animationSpec = tween(400, easing = EaseOutCubic)
-                        ) togetherWith fadeOut(
-                            animationSpec = tween(300, easing = EaseInCubic)
-                        )
-                    },
-                    label = "screenTransition"
-                ) { screen ->
-                    when (screen) {
-                        "loading" -> {
-                            // Empty loading state while we determine initial screen
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                // Optional: Add loading indicator
-                            }
+                if (showSplash) {
+                    SplashScreen(
+                        onSplashComplete = { showSplash = false }
+                    )
+                } else {
+                    // Use pre-initialized lazy values
+                    val localTokenManager = remember { tokenManager }
+                    val localUserRepository = remember { userRepository }
+                    
+                    // Create AuthViewModel with factory
+                    val authViewModel: AuthViewModel = viewModel(
+                        factory = AuthViewModelFactory(application)
+                    )
+                    
+                    // Create ProfileViewModel with factory
+                    val profileViewModel: ProfileViewModel = viewModel(
+                        factory = ProfileViewModelFactory(application, localUserRepository)
+                    )
+                    
+                    // Collect onboarding and login state
+                    val hasCompletedOnboarding by localTokenManager.hasCompletedOnboardingFlow.collectAsState(initial = false)
+                    val isLoggedIn by localTokenManager.isLoggedInFlow.collectAsState(initial = false)
+                    
+                    // Determine initial screen based on onboarding and login status
+                    var currentScreen by remember { mutableStateOf("loading") }
+                    
+                    // Update screen based on auth state
+                    LaunchedEffect(hasCompletedOnboarding, isLoggedIn) {
+                        currentScreen = when {
+                            !hasCompletedOnboarding -> "welcome"
+                            isLoggedIn -> "home"
+                            else -> "login"
                         }
-                        "welcome" -> WelcomeScreen(
-                            onGetStarted = { 
-                                // Mark onboarding as complete
-                                MainScope().launch {
-                                    tokenManager.setOnboardingCompleted()
+                    }
+
+                    // Smooth crossfade transition between screens
+                    AnimatedContent(
+                        targetState = currentScreen,
+                        transitionSpec = {
+                            fadeIn(
+                                animationSpec = tween(400, easing = EaseOutCubic)
+                            ) togetherWith fadeOut(
+                                animationSpec = tween(300, easing = EaseInCubic)
+                            )
+                        },
+                        label = "screenTransition"
+                    ) { screen ->
+                        when (screen) {
+                            "loading" -> {
+                                // Empty loading state while we determine initial screen
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    // Optional: Add loading indicator
                                 }
-                                currentScreen = "login" 
                             }
-                        )
-                        "login" -> LoginScreen(
-                            viewModel = authViewModel,
-                            onLoginSuccess = { currentScreen = "home" },
-                            onBack = { currentScreen = "welcome" }
-                        )
-                        "home" -> HomeScreen(
-                            profileViewModel = profileViewModel,
-                            onNavigateToChat = { 
-                                // Logout - navigate back to login (not welcome)
-                                authViewModel.logout()
-                                currentScreen = "login"
-                            },
-                            onNavigateToCalmAnxiety = {
-                                currentScreen = "calm_anxiety"
-                            },
-                            onNavigateToMoodJournal = {
-                                currentScreen = "mood_journal"
-                            }
-                        )
-                        "calm_anxiety" -> CalmAnxietyFlowScreen(
-                            onClose = { currentScreen = "home" },
-                            onNavigateToBreathing = { 
-                                // TODO: Navigate to breathing exercise
-                                currentScreen = "home" 
-                            },
-                            onNavigateToChat = { 
-                                // TODO: Navigate to chat
-                                currentScreen = "home" 
-                            }
-                        )
-                        "mood_journal" -> MoodJournalFlowScreen(
-                            onClose = { currentScreen = "home" },
-                            onSaveComplete = { currentScreen = "home" }
-                        )
+                            "welcome" -> WelcomeScreen(
+                                onGetStarted = { 
+                                    // Mark onboarding as complete
+                                    MainScope().launch {
+                                        localTokenManager.setOnboardingCompleted()
+                                    }
+                                    currentScreen = "login" 
+                                }
+                            )
+                            "login" -> LoginScreen(
+                                viewModel = authViewModel,
+                                onLoginSuccess = { currentScreen = "home" },
+                                onBack = { currentScreen = "welcome" }
+                            )
+                            "home" -> HomeScreen(
+                                profileViewModel = profileViewModel,
+                                onNavigateToChat = { 
+                                    // Logout - navigate back to login (not welcome)
+                                    authViewModel.logout()
+                                    currentScreen = "login"
+                                },
+                                onNavigateToCalmAnxiety = {
+                                    currentScreen = "calm_anxiety"
+                                },
+                                onNavigateToMoodJournal = {
+                                    currentScreen = "mood_journal"
+                                }
+                            )
+                            "calm_anxiety" -> CalmAnxietyFlowScreen(
+                                onClose = { currentScreen = "home" },
+                                onNavigateToBreathing = { 
+                                    // TODO: Navigate to breathing exercise
+                                    currentScreen = "home" 
+                                },
+                                onNavigateToChat = { 
+                                    // TODO: Navigate to chat
+                                    currentScreen = "home" 
+                                }
+                            )
+                            "mood_journal" -> MoodJournalFlowScreen(
+                                onClose = { currentScreen = "home" },
+                                onSaveComplete = { currentScreen = "home" }
+                            )
+                        }
                     }
                 }
             }

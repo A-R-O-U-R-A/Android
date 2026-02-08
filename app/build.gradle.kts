@@ -20,18 +20,35 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Build config for API URL
-        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5000/api/v1/\"")
+        // For physical device: Use your computer's local IP (find with ipconfig/ifconfig)
+        // For emulator: Use 10.0.2.2
+        // CHANGE THIS TO YOUR COMPUTER'S IP when testing on physical device:
+        buildConfigField("String", "API_BASE_URL", "\"http://192.168.29.175:5000/api/v1/\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"792273673707-ekiibisf3te7rbsb1ikgqqjh3ipcldpf.apps.googleusercontent.com\"")
     }
 
     buildTypes {
-        release {
+        debug {
+            // Faster debug builds
             isMinifyEnabled = false
+            isShrinkResources = false
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://api.aroura.app/api/v1/\"")
+        }
+    }
+    
+    // Faster builds
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/DEPENDENCIES"
         }
     }
     compileOptions {
@@ -81,6 +98,11 @@ dependencies {
     
     // Image Loading
     implementation(libs.coil.compose)
+    
+    // Media3 / ExoPlayer for Audio Streaming
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.session)
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

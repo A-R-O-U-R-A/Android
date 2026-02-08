@@ -45,6 +45,7 @@ import com.example.aroura.ui.viewmodels.AuthViewModel
 import com.facebook.CallbackManager
 import com.facebook.FacebookCallback
 import com.facebook.FacebookException
+import com.facebook.FacebookSdk
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import kotlinx.coroutines.delay
@@ -100,41 +101,56 @@ fun LoginScreen(
     var isVisible by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     
-    // Facebook callback manager
-    val callbackManager = remember { CallbackManager.Factory.create() }
+    // Facebook callback manager - created lazily after SDK is initialized
+    var facebookInitialized by remember { mutableStateOf(false) }
+    val callbackManager = remember(facebookInitialized) { 
+        if (facebookInitialized) CallbackManager.Factory.create() else null
+    }
     
-    // Register Facebook callback
-    DisposableEffect(Unit) {
-        LoginManager.getInstance().registerCallback(
-            callbackManager,
-            object : FacebookCallback<LoginResult> {
-                override fun onSuccess(result: LoginResult) {
-                    Log.d(TAG, "Facebook login success")
-                    result.accessToken?.token?.let { token ->
-                        viewModel.handleFacebookSignInResult(token)
+    // Initialize Facebook SDK lazily
+    LaunchedEffect(Unit) {
+        if (!FacebookSdk.isInitialized()) {
+            FacebookSdk.sdkInitialize(context.applicationContext)
+        }
+        facebookInitialized = true
+    }
+    
+    // Register Facebook callback (only after SDK is initialized)
+    DisposableEffect(callbackManager) {
+        callbackManager?.let { cm ->
+            LoginManager.getInstance().registerCallback(
+                cm,
+                object : FacebookCallback<LoginResult> {
+                    override fun onSuccess(result: LoginResult) {
+                        Log.d(TAG, "Facebook login success")
+                        result.accessToken?.token?.let { token ->
+                            viewModel.handleFacebookSignInResult(token)
+                        }
+                    }
+                    
+                    override fun onCancel() {
+                        Log.d(TAG, "Facebook login cancelled")
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Facebook login cancelled")
+                        }
+                    }
+                    
+                    override fun onError(error: FacebookException) {
+                        Log.e(TAG, "Facebook login error", error)
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                error.message ?: "Facebook login failed"
+                            )
+                        }
                     }
                 }
-                
-                override fun onCancel() {
-                    Log.d(TAG, "Facebook login cancelled")
-                    scope.launch {
-                        snackbarHostState.showSnackbar("Facebook login cancelled")
-                    }
-                }
-                
-                override fun onError(error: FacebookException) {
-                    Log.e(TAG, "Facebook login error", error)
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            error.message ?: "Facebook login failed"
-                        )
-                    }
-                }
-            }
-        )
+            )
+        }
         
         onDispose {
-            LoginManager.getInstance().unregisterCallback(callbackManager)
+            callbackManager?.let { cm ->
+                LoginManager.getInstance().unregisterCallback(cm)
+            }
         }
     }
     
@@ -240,6 +256,12 @@ fun LoginScreen(
     
     fun handleFacebookSignIn() {
         Log.d(TAG, "Starting Facebook Sign-In")
+        if (callbackManager == null) {
+            scope.launch {
+                snackbarHostState.showSnackbar("Facebook login not ready, please try again")
+            }
+            return
+        }
         activity?.let { act ->
             LoginManager.getInstance().logInWithReadPermissions(
                 act as androidx.activity.result.ActivityResultRegistryOwner,

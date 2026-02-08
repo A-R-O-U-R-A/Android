@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,50 +25,58 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.components.ArouraSectionTitle
 import com.example.aroura.ui.theme.*
+import com.example.aroura.ui.viewmodels.CalmMediaItemData
+import com.example.aroura.ui.viewmodels.CalmViewModel
+import com.example.aroura.ui.viewmodels.CalmViewModelFactory
 
-// Data Model
+// Legacy Data Model (for backward compatibility with navigation)
 data class CalmMediaItem(
     val id: String,
     val title: String,
     val subtitle: String,
     val category: String,
     val startColor: Color,
-    val endColor: Color
+    val endColor: Color,
+    val streamingUrl: String = "",
+    val streamingUrlBackup: String? = null,
+    val duration: Int = 0,
+    val loopAllowed: Boolean = false,
+    val sourceName: String = ""
 )
 
-// Mock Data with refined colors
-val devotionalItems = listOf(
-    CalmMediaItem("1", "Krishna Bhajan", "Divine Flute", "Devotional", Color(0xFF5C6BC0), Color(0xFF3949AB)),
-    CalmMediaItem("2", "Mantras & Chants", "Om Chanting", "Devotional", Color(0xFFFFB74D), Color(0xFFF57C00)),
-    CalmMediaItem("3", "Islamic Nasheeds", "Peaceful Sufi", "Devotional", Color(0xFF4DB6AC), Color(0xFF00897B))
-)
-
-val audioBookItems = listOf(
-    CalmMediaItem("4", "Mahabharata", "Epic Saga", "AudioBook", Color(0xFFE57373), Color(0xFFD32F2F)),
-    CalmMediaItem("5", "Bhagavad Gita", "Sacred Song", "AudioBook", Color(0xFFFFD54F), Color(0xFFFFA000)),
-    CalmMediaItem("6", "Holy Quran", "Recitation", "AudioBook", Color(0xFF81C784), Color(0xFF388E3C))
-)
-
-val relaxationItems = listOf(
-    CalmMediaItem("7", "Nature Sounds", "Forest Rain", "Relaxation", Color(0xFF81C784), Color(0xFF2E7D32)),
-    CalmMediaItem("8", "Calm Music", "Deep Sleep", "Relaxation", Color(0xFF9575CD), Color(0xFF512DA8))
+// Extension to convert new model to legacy model for navigation
+fun CalmMediaItemData.toLegacyItem(): CalmMediaItem = CalmMediaItem(
+    id = id,
+    title = title,
+    subtitle = subtitle,
+    category = category,
+    startColor = startColor,
+    endColor = endColor,
+    streamingUrl = streamingUrl,
+    streamingUrlBackup = streamingUrlBackup,
+    duration = duration,
+    loopAllowed = loopAllowed,
+    sourceName = sourceName
 )
 
 /**
- * Calm Screen - Premium Redesign
+ * Calm Screen - Premium Redesign with Real Audio
  * 
  * Features:
+ * - Real audio streaming from Freesound, Jamendo, Internet Archive, LibriVox
  * - Clean section hierarchy
  * - Premium media cards with hover effects
  * - Smooth entrance animations
- * - Consistent spacing and typography
+ * - Loading states and error handling
  */
 @Composable
 fun CalmScreen(
@@ -76,11 +85,20 @@ fun CalmScreen(
     onProfileClick: () -> Unit,
     profilePictureUrl: String? = null
 ) {
+    val context = LocalContext.current
+    val viewModel: CalmViewModel = viewModel(factory = CalmViewModelFactory(context))
+    
+    val uiState by viewModel.uiState.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    
     var showFilter by remember { mutableStateOf(false) }
     var visible by remember { mutableStateOf(false) }
+    
     LaunchedEffect(Unit) { visible = true }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Main Content
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -141,88 +159,260 @@ fun CalmScreen(
                 
                 Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             }
-
-            // Devotional Section
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(
-                        initialOffsetY = { 20 },
-                        animationSpec = tween(500, delayMillis = 150)
-                    )
-                ) {
-                    Column {
-                        PremiumSectionHeader(
-                            title = "Devotional Songs",
-                            onClick = { onViewAllClick("Devotional Songs", devotionalItems) }
-                        )
-                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
-                        ) {
-                            items(devotionalItems) { item ->
-                                PremiumSquareMediaCard(item, onItemClick)
-                            }
+            
+            // Loading Indicator
+            if (isLoading && !uiState.isContentLoaded) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = MutedTeal,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Loading peaceful content...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextDarkSecondary
+                            )
                         }
-                    }
-                }
-                Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
-            }
-
-            // Audio Books Section
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(500, delayMillis = 250)) + slideInVertically(
-                        initialOffsetY = { 20 },
-                        animationSpec = tween(500, delayMillis = 250)
-                    )
-                ) {
-                    Column {
-                        PremiumSectionHeader(
-                            title = "Audio Books",
-                            onClick = { onViewAllClick("Audio Books", audioBookItems) }
-                        )
-                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
-                        ) {
-                            items(audioBookItems) { item ->
-                                PremiumSquareMediaCard(item, onItemClick)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
-            }
-
-            // Relaxation Section
-            item {
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(500, delayMillis = 350)) + slideInVertically(
-                        initialOffsetY = { 20 },
-                        animationSpec = tween(500, delayMillis = 350)
-                    )
-                ) {
-                    Column {
-                        PremiumSectionHeader(
-                            title = "Relaxation Sounds",
-                            onClick = { onViewAllClick("Relaxation Sounds", relaxationItems) }
-                        )
-                        Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
                     }
                 }
             }
             
-            items(relaxationItems) { item ->
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(500, delayMillis = 400))
-                ) {
-                    PremiumWideMediaCard(item, onItemClick)
+            // Error State with Retry
+            error?.let { errorMessage ->
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF3D2929)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = errorMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFE57373)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            TextButton(
+                                onClick = { 
+                                    viewModel.clearError()
+                                    viewModel.loadAllContent() 
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.Refresh,
+                                    contentDescription = null,
+                                    tint = MutedTeal
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Retry", color = MutedTeal)
+                            }
+                        }
+                    }
                 }
-                Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+            }
+
+            // Devotional Section
+            if (uiState.devotionalItems.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(300)) + slideInVertically(
+                            initialOffsetY = { 20 },
+                            animationSpec = tween(300)
+                        )
+                    ) {
+                        Column {
+                            PremiumSectionHeader(
+                                title = "Devotional Songs",
+                                onClick = { 
+                                    onViewAllClick(
+                                        "Devotional Songs", 
+                                        uiState.devotionalItems.map { it.toLegacyItem() }
+                                    ) 
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
+                            ) {
+                                items(uiState.devotionalItems) { item ->
+                                    PremiumSquareMediaCard(
+                                        item = item.toLegacyItem(),
+                                        onClick = { onItemClick(item.toLegacyItem()) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+                }
+            }
+
+            // Audio Books Section
+            if (uiState.audiobookItems.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(300, delayMillis = 50)) + slideInVertically(
+                            initialOffsetY = { 20 },
+                            animationSpec = tween(300, delayMillis = 50)
+                        )
+                    ) {
+                        Column {
+                            PremiumSectionHeader(
+                                title = "Spiritual Audiobooks",
+                                onClick = { 
+                                    onViewAllClick(
+                                        "Spiritual Audiobooks", 
+                                        uiState.audiobookItems.map { it.toLegacyItem() }
+                                    ) 
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
+                            ) {
+                                items(uiState.audiobookItems) { item ->
+                                    PremiumSquareMediaCard(
+                                        item = item.toLegacyItem(),
+                                        onClick = { onItemClick(item.toLegacyItem()) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+                }
+            }
+            
+            // Nature Sounds Section
+            if (uiState.natureSounds.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(300, delayMillis = 100)) + slideInVertically(
+                            initialOffsetY = { 20 },
+                            animationSpec = tween(300, delayMillis = 100)
+                        )
+                    ) {
+                        Column {
+                            PremiumSectionHeader(
+                                title = "Nature Sounds",
+                                onClick = { 
+                                    onViewAllClick(
+                                        "Nature Sounds", 
+                                        uiState.natureSounds.map { it.toLegacyItem() }
+                                    ) 
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)
+                            ) {
+                                items(uiState.natureSounds) { item ->
+                                    PremiumSquareMediaCard(
+                                        item = item.toLegacyItem(),
+                                        onClick = { onItemClick(item.toLegacyItem()) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
+                }
+            }
+            
+            // Calm Music Section
+            if (uiState.calmMusic.isNotEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(300, delayMillis = 150)) + slideInVertically(
+                            initialOffsetY = { 20 },
+                            animationSpec = tween(300, delayMillis = 150)
+                        )
+                    ) {
+                        Column {
+                            PremiumSectionHeader(
+                                title = "Calm Music",
+                                onClick = { 
+                                    onViewAllClick(
+                                        "Calm Music", 
+                                        uiState.calmMusic.map { it.toLegacyItem() }
+                                    ) 
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                        }
+                    }
+                }
+                
+                items(uiState.calmMusic.take(4)) { item ->
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(300, delayMillis = 200))
+                    ) {
+                        PremiumWideMediaCard(
+                            item = item.toLegacyItem(),
+                            onClick = { onItemClick(item.toLegacyItem()) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                }
+            }
+
+            // Relaxation Section (fallback)
+            if (uiState.relaxationItems.isNotEmpty() && uiState.natureSounds.isEmpty()) {
+                item {
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(500, delayMillis = 350)) + slideInVertically(
+                            initialOffsetY = { 20 },
+                            animationSpec = tween(500, delayMillis = 350)
+                        )
+                    ) {
+                        Column {
+                            PremiumSectionHeader(
+                                title = "Relaxation Sounds",
+                                onClick = { 
+                                    onViewAllClick(
+                                        "Relaxation Sounds", 
+                                        uiState.relaxationItems.map { it.toLegacyItem() }
+                                    ) 
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                        }
+                    }
+                }
+                
+                items(uiState.relaxationItems) { item ->
+                    AnimatedVisibility(
+                        visible = visible && uiState.isContentLoaded,
+                        enter = fadeIn(tween(500, delayMillis = 400))
+                    ) {
+                        PremiumWideMediaCard(
+                            item = item.toLegacyItem(),
+                            onClick = { onItemClick(item.toLegacyItem()) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(ArouraSpacing.md.dp))
+                }
             }
         }
         
@@ -260,19 +450,10 @@ private fun PremiumSectionHeader(title: String, onClick: () -> Unit) {
 
 @Composable
 private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "cardScale"
-    )
-    
+    // Removed heavy press animation - use simpler opacity change
     Box(
         modifier = Modifier
             .size(150.dp)
-            .scale(scale)
             .clip(RoundedCornerShape(ArouraSpacing.cardRadius.dp))
             .background(
                 brush = Brush.linearGradient(
@@ -282,10 +463,7 @@ private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem)
                     )
                 )
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null
-            ) { onClick(item) }
+            .clickable { onClick(item) }
     ) {
         // Decorative Shine
         Box(
@@ -295,6 +473,27 @@ private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem)
                 .size(60.dp)
                 .background(Color.White.copy(alpha = 0.15f), CircleShape)
         )
+        
+        // Source Badge
+        if (item.sourceName.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(ArouraSpacing.xs.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.4f),
+                        RoundedCornerShape(4.dp)
+                    )
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = item.sourceName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = OffWhite.copy(alpha = 0.8f),
+                    fontSize = 8.sp
+                )
+            }
+        }
         
         // Play Button
         Box(
@@ -340,20 +539,11 @@ private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem)
 
 @Composable
 private fun PremiumWideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "wideCardScale"
-    )
-    
+    // Removed heavy press animation - use simpler approach
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(80.dp)
-            .scale(scale)
             .clip(RoundedCornerShape(ArouraSpacing.cardRadius.dp))
             .background(
                 brush = Brush.horizontalGradient(
@@ -373,10 +563,7 @@ private fun PremiumWideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -
                 ),
                 RoundedCornerShape(ArouraSpacing.cardRadius.dp)
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null
-            ) { onClick(item) }
+            .clickable { onClick(item) }
             .padding(horizontal = ArouraSpacing.lg.dp)
     ) {
         Row(
@@ -390,11 +577,20 @@ private fun PremiumWideMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -
                     color = OffWhite,
                     fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    text = item.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OffWhite.copy(alpha = 0.7f)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = OffWhite.copy(alpha = 0.7f)
+                    )
+                    if (item.sourceName.isNotEmpty()) {
+                        Text(
+                            text = " • ${item.sourceName}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = OffWhite.copy(alpha = 0.5f)
+                        )
+                    }
+                }
             }
             
             Box(

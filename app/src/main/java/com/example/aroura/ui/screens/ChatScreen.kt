@@ -321,154 +321,134 @@ private fun PremiumChatTopBar(mode: String, onBack: () -> Unit, onNewChat: () ->
 
 @Composable
 private fun PremiumChatBubble(message: UIChatMessage, mode: String) {
-    // Entrance animation
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
-    
+    // FIXED: Use message.id as key so animation only runs once per unique message
+    // Previously used LaunchedEffect(Unit) which caused re-animation on every recomposition
     val accentColor = if (mode == "Counselor") SoftBlue else CalmingPeach
     
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(300)) + slideInVertically(
-            initialOffsetY = { 20 },
-            animationSpec = tween(300, easing = EaseOutCubic)
-        )
+    // Simple fade-in without heavy animation overhead
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
-            verticalAlignment = Alignment.Bottom
-        ) {
-            if (!message.isFromUser) {
-                // AI Avatar
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(
-                            brush = Brush.linearGradient(
-                                colors = listOf(accentColor.copy(alpha = 0.3f), MutedTeal.copy(alpha = 0.2f))
-                            ),
-                            shape = CircleShape
+        if (!message.isFromUser) {
+            // AI Avatar
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(accentColor.copy(alpha = 0.3f), MutedTeal.copy(alpha = 0.2f))
                         ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-
-            Surface(
-                color = when {
-                    message.isLoading -> DeepSurface.copy(alpha = 0.5f)
-                    message.isError -> Color(0xFF5C2A2A).copy(alpha = 0.7f)
-                    message.isCrisisResponse -> Color(0xFF2A3D5C).copy(alpha = 0.8f)
-                    message.isFromUser -> accentColor.copy(alpha = 0.15f)
-                    else -> DeepSurface.copy(alpha = 0.7f)
-                },
-                shape = RoundedCornerShape(
-                    topStart = 20.dp,
-                    topEnd = 20.dp,
-                    bottomStart = if (message.isFromUser) 20.dp else 6.dp,
-                    bottomEnd = if (message.isFromUser) 6.dp else 20.dp
-                ),
-                border = if (message.isFromUser) null else ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.Transparent
-                        )
-                    )
-                ),
-                modifier = Modifier.widthIn(max = 280.dp)
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                if (message.isLoading) {
-                    // Show loading indicator
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        repeat(3) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(accentColor.copy(alpha = 0.5f), CircleShape)
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Surface(
+            color = when {
+                message.isLoading -> DeepSurface.copy(alpha = 0.5f)
+                message.isError -> Color(0xFF5C2A2A).copy(alpha = 0.7f)
+                message.isCrisisResponse -> Color(0xFF2A3D5C).copy(alpha = 0.8f)
+                message.isFromUser -> accentColor.copy(alpha = 0.15f)
+                else -> DeepSurface.copy(alpha = 0.7f)
+            },
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (message.isFromUser) 20.dp else 6.dp,
+                bottomEnd = if (message.isFromUser) 6.dp else 20.dp
+            ),
+            border = if (message.isFromUser) null else ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.08f),
+                        Color.Transparent
+                    )
+                )
+            ),
+            modifier = Modifier.widthIn(max = 280.dp)
+        ) {
+            if (message.isLoading) {
+                // Show loading indicator
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(accentColor.copy(alpha = 0.5f), CircleShape)
+                        )
+                    }
+                }
+            } else {
+                Column {
+                    if (message.isCrisisResponse) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = SoftBlue,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Support Resources Available",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SoftBlue
                             )
                         }
                     }
-                } else {
-                    Column {
-                        if (message.isCrisisResponse) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Warning,
-                                    contentDescription = null,
-                                    tint = SoftBlue,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Support Resources Available",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = SoftBlue
-                                )
-                            }
-                        }
-                        Text(
-                            text = message.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = if (message.isError) Color(0xFFEF9A9A) else OffWhite,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            lineHeight = 24.sp
-                        )
-                    }
+                    Text(
+                        text = message.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (message.isError) Color(0xFFEF9A9A) else OffWhite,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        lineHeight = 24.sp
+                    )
                 }
             }
         }
     }
 }
 
+// Simplified typing indicator with single animation
 @Composable
 private fun TypingIndicator(mode: String) {
     val accentColor = if (mode == "Counselor") SoftBlue else CalmingPeach
     
+    // Single animation for all dots to reduce overhead
     val infiniteTransition = rememberInfiniteTransition(label = "typing")
-    val dot1 by infiniteTransition.animateFloat(
+    val animationProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
-        label = "dot1"
+        label = "dots"
     )
-    val dot2 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, delayMillis = 150),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dot2"
-    )
-    val dot3 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600, delayMillis = 300),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "dot3"
-    )
+    
+    // Calculate each dot's alpha based on progress with phase offset
+    val dot1Alpha = ((animationProgress * 3f) % 1f).coerceIn(0.4f, 0.9f)
+    val dot2Alpha = (((animationProgress + 0.33f) * 3f) % 1f).coerceIn(0.4f, 0.9f)
+    val dot3Alpha = (((animationProgress + 0.66f) * 3f) % 1f).coerceIn(0.4f, 0.9f)
     
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -508,20 +488,17 @@ private fun TypingIndicator(mode: String) {
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .scale(0.6f + dot1 * 0.4f)
-                        .background(accentColor.copy(alpha = 0.4f + dot1 * 0.4f), CircleShape)
+                        .background(accentColor.copy(alpha = dot1Alpha), CircleShape)
                 )
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .scale(0.6f + dot2 * 0.4f)
-                        .background(accentColor.copy(alpha = 0.4f + dot2 * 0.4f), CircleShape)
+                        .background(accentColor.copy(alpha = dot2Alpha), CircleShape)
                 )
                 Box(
                     modifier = Modifier
                         .size(8.dp)
-                        .scale(0.6f + dot3 * 0.4f)
-                        .background(accentColor.copy(alpha = 0.4f + dot3 * 0.4f), CircleShape)
+                        .background(accentColor.copy(alpha = dot3Alpha), CircleShape)
                 )
             }
         }
@@ -593,20 +570,14 @@ private fun PremiumChatInputBar(
                 )
             }
 
-            // Send button with animation
+            // Send button - simplified without heavy scale animation
             val sendEnabled = text.isNotBlank() && enabled
-            val sendScale by animateFloatAsState(
-                targetValue = if (sendEnabled) 1f else 0.8f,
-                animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                label = "sendScale"
-            )
             
             IconButton(
                 onClick = onSend,
                 enabled = sendEnabled,
                 modifier = Modifier
                     .size(40.dp)
-                    .scale(sendScale)
                     .background(
                         if (sendEnabled) MutedTeal.copy(alpha = 0.2f) else Color.Transparent,
                         CircleShape

@@ -56,22 +56,10 @@ fun ArouraProfileIcon(
     profilePictureUrl: String? = null
 ) {
     val context = LocalContext.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "profileScale"
-    )
     
     Box(
         modifier = modifier
             .size(size)
-            .scale(scale)
             .clip(CircleShape)
             .background(
                 brush = Brush.linearGradient(
@@ -91,11 +79,7 @@ fun ArouraProfileIcon(
                 ),
                 shape = CircleShape
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (profilePictureUrl != null) {
@@ -228,25 +212,11 @@ fun ArouraPrimaryButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
+    // Simplified scale animation
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = tween(100),
         label = "buttonScale"
-    )
-    
-    // Glow animation
-    val infiniteTransition = rememberInfiniteTransition(label = "buttonGlow")
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 0.25f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
     )
 
     Box(
@@ -256,20 +226,7 @@ fun ArouraPrimaryButton(
             .height(60.dp)
             .scale(scale)
     ) {
-        // Glow layer
-        if (enabled && !isLoading) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        this.alpha = glowAlpha
-                        this.scaleX = 1.03f
-                        this.scaleY = 1.08f
-                    },
-                color = MutedTeal,
-                shape = RoundedCornerShape(30.dp)
-            ) {}
-        }
+        // Removed infinite glow animation for performance
         
         // Button
         Button(
@@ -314,21 +271,11 @@ fun ArouraSecondaryButton(
     modifier: Modifier = Modifier,
     icon: ImageVector? = null
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "secondaryScale"
-    )
-    
     OutlinedButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .scale(scale),
+            .height(56.dp),
         shape = RoundedCornerShape(28.dp),
         border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
             brush = Brush.linearGradient(
@@ -341,8 +288,7 @@ fun ArouraSecondaryButton(
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = OffWhite,
             containerColor = Color.Transparent
-        ),
-        interactionSource = interactionSource
+        )
     ) {
         if (icon != null) {
             Icon(
@@ -370,25 +316,11 @@ fun ArouraCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && onClick != null) 0.98f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "cardScale"
-    )
-    
     Surface(
         modifier = modifier
-            .scale(scale)
             .then(
                 if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = onClick
-                    )
+                    Modifier.clickable(onClick = onClick)
                 } else Modifier
             ),
         shape = RoundedCornerShape(ArouraSpacing.cardRadius.dp),

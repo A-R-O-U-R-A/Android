@@ -211,6 +211,13 @@ object ApiClient {
     }
     
     /**
+     * Create Audio API Service with provided TokenManager
+     */
+    fun createAudioApiService(tokenManager: TokenManager): AudioApiService {
+        return createRetrofit(tokenManager).create(AudioApiService::class.java)
+    }
+    
+    /**
      * Create a service for other API endpoints
      */
     fun <T> createService(tokenManager: TokenManager, serviceClass: Class<T>): T {

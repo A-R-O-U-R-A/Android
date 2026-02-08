@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.Aroura" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Main app theme -->
+    <style name="Theme.Aroura" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
+    </style>
+    
+    <!-- Splash theme for instant cold start -->
+    <style name="Theme.Aroura.Splash" parent="Theme.Aroura">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
 </resources>

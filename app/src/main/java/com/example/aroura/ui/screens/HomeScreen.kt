@@ -319,6 +319,29 @@ fun HomeScreen(
 // HOME CONTENT - Complete Redesigned Experience
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Static data moved outside composable to prevent recreation on recomposition
+private val staticRoutineTasks = listOf(
+    RoutineTask("1", "Journaling", "Track Your Mood", false, CalmingLavender),
+    RoutineTask("2", "Journaling", "Calm Your Anxiety", false, SoftBlue),
+    RoutineTask("3", "Mindfulness", "5-Minute Breathing", true, MutedTeal)
+)
+
+private val staticTestPreviews = listOf(
+    TestPreview("1", "Personality", "🧬", CalmingLavender, false),
+    TestPreview("2", "Childhood", "👶", CalmingPeach, false),
+    TestPreview("3", "Love Language", "❤️", GentleError.copy(alpha = 0.8f), false),
+    TestPreview("4", "Attachment", "🔗", MutedTeal, false),
+    TestPreview("5", "Emotional IQ", "💜", SoftBlue, false)
+)
+
+private val staticQuizzes = listOf(
+    QuizPreview("1", "What's Your Superpower?", "✨", CalmingPeach),
+    QuizPreview("2", "Self-Care Style", "🌿", CalmingGreen),
+    QuizPreview("3", "Your Inner Animal", "🦋", CalmingLavender)
+)
+
+private const val dailyAffirmation = "You are allowed to be exactly who you are."
+
 @Composable
 fun HomeContent(
     userName: String = "Friend",
@@ -333,46 +356,20 @@ fun HomeContent(
     onNavigateToCalmAnxiety: () -> Unit = {},
     onNavigateToMoodJournal: () -> Unit = {}
 ) {
-    // State for all sections
+    // State for all sections - calculate initial day once
+    val initialDay = remember { 
+        (java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) - 2).coerceIn(0, 6) 
+    }
     var selectedMood by remember { mutableIntStateOf(-1) }
-    var selectedDay by remember { mutableIntStateOf(java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) - 2) }
+    var selectedDay by remember { mutableIntStateOf(initialDay) }
     
-    // Sample routine tasks
-    val routineTasks = remember {
-        listOf(
-            RoutineTask("1", "Journaling", "Track Your Mood", false, CalmingLavender),
-            RoutineTask("2", "Journaling", "Calm Your Anxiety", false, SoftBlue),
-            RoutineTask("3", "Mindfulness", "5-Minute Breathing", true, MutedTeal)
-        )
-    }
-    
-    // Sample test previews
-    val testPreviews = remember {
-        listOf(
-            TestPreview("1", "Personality", "🧬", CalmingLavender, false),
-            TestPreview("2", "Childhood", "👶", CalmingPeach, false),
-            TestPreview("3", "Love Language", "❤️", GentleError.copy(alpha = 0.8f), false),
-            TestPreview("4", "Attachment", "🔗", MutedTeal, false),
-            TestPreview("5", "Emotional IQ", "💜", SoftBlue, false)
-        )
-    }
-    
-    // Sample quizzes
-    val quizzes = remember {
-        listOf(
-            QuizPreview("1", "What's Your Superpower?", "✨", CalmingPeach),
-            QuizPreview("2", "Self-Care Style", "🌿", CalmingGreen),
-            QuizPreview("3", "Your Inner Animal", "🦋", CalmingLavender)
-        )
-    }
-    
-    // Daily affirmation
-    val affirmation = "You are allowed to be exactly who you are."
+    // Use stable scroll state
+    val scrollState = rememberScrollState()
     
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = ArouraSpacing.screenHorizontal.dp)
             .systemBarsPadding()
     ) {
@@ -418,7 +415,7 @@ fun HomeContent(
         // ═══════════════════════════════════════════════════════════════════════
         
         DailyAffirmationCard(
-            affirmation = affirmation,
+            affirmation = dailyAffirmation,
             onShare = { /* Share functionality */ }
         )
         
@@ -444,7 +441,7 @@ fun HomeContent(
         YourRoutineSection(
             selectedDay = selectedDay.coerceIn(0, 6),
             onDaySelected = { selectedDay = it },
-            tasks = routineTasks,
+            tasks = staticRoutineTasks,
             onTaskClick = { task ->
                 // Navigate to appropriate screen based on task
                 when (task.title) {
@@ -477,7 +474,7 @@ fun HomeContent(
         TestResultsSection(
             completedCount = 0,
             totalTests = 37,
-            tests = testPreviews,
+            tests = staticTestPreviews,
             onTestClick = { /* Navigate to test */ },
             onViewAll = { /* Navigate to all tests */ }
         )
@@ -489,7 +486,7 @@ fun HomeContent(
         // ═══════════════════════════════════════════════════════════════════════
         
         UpliftingQuizzesSection(
-            quizzes = quizzes,
+            quizzes = staticQuizzes,
             onQuizClick = { /* Navigate to quiz */ }
         )
         
@@ -557,20 +554,14 @@ private fun NavBarItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
+    // Use simpler transitions without spring for better performance
     val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.1f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        targetValue = if (isSelected) 1.08f else 1f,
+        animationSpec = tween(200),
         label = "navScale"
     )
     
-    val iconColor by animateColorAsState(
-        targetValue = if (isSelected) OffWhite else TextDarkSecondary,
-        animationSpec = tween(300),
-        label = "navColor"
-    )
+    val iconColor = if (isSelected) OffWhite else TextDarkSecondary
     
     Column(
         modifier = Modifier
@@ -587,11 +578,7 @@ private fun NavBarItem(
             tint = iconColor
         )
         
-        AnimatedVisibility(
-            visible = isSelected,
-            enter = fadeIn(tween(300)) + expandVertically(),
-            exit = fadeOut(tween(200)) + shrinkVertically()
-        ) {
+        if (isSelected) {
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.labelSmall,

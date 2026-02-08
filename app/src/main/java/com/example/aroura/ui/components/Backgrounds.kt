@@ -22,11 +22,13 @@ import kotlin.math.sin
  * A.R.O.U.R.A Premium Aurora Background
  * 
  * Design Philosophy:
- * - Slow, intentional motion (30-60 second cycles)
- * - Layered depth with multiple aurora bands
+ * - Slow, intentional motion (45-60 second cycles)
+ * - Layered depth with aurora bands
  * - Subtle breathing effect
  * - Calming, not distracting
  * - GPU-friendly implementation
+ * 
+ * OPTIMIZED: Reduced from 10 separate animations to 3 master animations
  */
 @Composable
 fun ArouraBackground(
@@ -35,100 +37,56 @@ fun ArouraBackground(
     val infiniteTransition = rememberInfiniteTransition(label = "aurora_premium")
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 1: Base Aurora Drift (45 second cycle)
+    // MASTER ANIMATION 1: Primary drift (controls X/Y movement)
     // ═══════════════════════════════════════════════════════════════════════════
     
-    val drift1X by infiniteTransition.animateFloat(
-        initialValue = -0.15f,
-        targetValue = 0.15f,
+    val masterDrift by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(45000, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "drift1X"
-    )
-    
-    val drift1Y by infiniteTransition.animateFloat(
-        initialValue = 0.05f,
-        targetValue = -0.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(55000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift1Y"
+        label = "masterDrift"
     )
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 2: Secondary Band (35 second cycle)
+    // MASTER ANIMATION 2: Secondary rotation/alpha
     // ═══════════════════════════════════════════════════════════════════════════
     
-    val drift2Rotation by infiniteTransition.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(35000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift2Rotation"
-    )
-    
-    val drift2Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.35f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift2Alpha"
-    )
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 3: Accent Glow (60 second breathe)
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    val glowScale by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(60000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowScale"
-    )
-    
-    val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.1f,
-        targetValue = 0.25f,
+    val masterAlpha by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(30000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "glowAlpha"
+        label = "masterAlpha"
     )
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 4: Floating Particles (4-6 second micro-movement)
+    // MASTER ANIMATION 3: Glow scale/breathe
     // ═══════════════════════════════════════════════════════════════════════════
     
-    val particle1Y by infiniteTransition.animateFloat(
+    val masterGlow by infiniteTransition.animateFloat(
         initialValue = 0f,
-        targetValue = 20f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(5000, easing = FastOutSlowInEasing),
+            animation = tween(60000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "particle1Y"
+        label = "masterGlow"
     )
     
-    val particle2Y by infiniteTransition.animateFloat(
-        initialValue = 10f,
-        targetValue = -10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "particle2Y"
-    )
+    // Derived values from master animations (no additional animations needed)
+    val drift1X = -0.15f + masterDrift * 0.3f
+    val drift1Y = 0.05f - masterDrift * 0.1f
+    val drift2Rotation = -5f + masterAlpha * 10f
+    val drift2Alpha = 0.15f + masterAlpha * 0.2f
+    val glowScale = 0.8f + masterGlow * 0.4f
+    val glowAlpha = 0.1f + masterGlow * 0.15f
+    val particle1Y = masterAlpha * 20f
+    val particle2Y = 10f - masterDrift * 20f
 
     // Color Palette
     val deepNight = Color(0xFF080A10)
