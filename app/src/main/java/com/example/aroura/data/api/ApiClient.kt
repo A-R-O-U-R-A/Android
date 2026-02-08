@@ -2,11 +2,18 @@ package com.example.aroura.data.api
 
 import com.example.aroura.BuildConfig
 import com.example.aroura.data.local.TokenManager
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.Authenticator
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
+import okhttp3.Route
 import okhttp3.logging.HttpLoggingInterceptor
+import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
@@ -16,6 +23,7 @@ import java.util.concurrent.TimeUnit
  * 
  * Provides configured Retrofit instance with:
  * - JWT Bearer token authentication
+ * - Automatic token refresh on 401
  * - Request/response logging (debug only)
  * - Proper timeout configuration
  */
@@ -52,13 +60,95 @@ object ApiClient {
         // Add auth header if token exists
         val accessToken = tokenManager.getAccessTokenSync()
         
+        // Debug logging
+        android.util.Log.d("ApiClient", "Request to: ${originalRequest.url}")
+        android.util.Log.d("ApiClient", "Token present: ${accessToken != null}")
+        
         if (accessToken != null) {
+            android.util.Log.d("ApiClient", "Adding Authorization header, token length: ${accessToken.length}")
             val newRequest = originalRequest.newBuilder()
                 .header("Authorization", "Bearer $accessToken")
                 .build()
             chain.proceed(newRequest)
         } else {
+            android.util.Log.w("ApiClient", "No token available for authenticated request!")
             chain.proceed(originalRequest)
+        }
+    }
+    
+    /**
+     * Token Authenticator - Automatically refreshes token on 401
+     */
+    private fun createTokenAuthenticator(tokenManager: TokenManager) = object : Authenticator {
+        override fun authenticate(route: Route?, response: Response): Request? {
+            // Don't retry if we've already tried to refresh
+            if (response.request.header("X-Retry-Auth") != null) {
+                android.util.Log.e("ApiClient", "Token refresh already attempted, giving up")
+                return null
+            }
+            
+            android.util.Log.d("ApiClient", "Got 401, attempting token refresh...")
+            
+            val refreshToken = tokenManager.getRefreshTokenSync()
+            if (refreshToken == null) {
+                android.util.Log.e("ApiClient", "No refresh token available")
+                return null
+            }
+            
+            // Make synchronous refresh request
+            val refreshRequest = Request.Builder()
+                .url("${BuildConfig.API_BASE_URL}auth/refresh")
+                .post(
+                    JSONObject().put("refreshToken", refreshToken).toString()
+                        .toRequestBody("application/json".toMediaType())
+                )
+                .build()
+            
+            val client = OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .build()
+            
+            return try {
+                val refreshResponse = client.newCall(refreshRequest).execute()
+                
+                if (refreshResponse.isSuccessful) {
+                    val body = refreshResponse.body?.string()
+                    val jsonResponse = JSONObject(body ?: "{}")
+                    
+                    val newAccessToken = jsonResponse.optString("accessToken")
+                    val newRefreshToken = jsonResponse.optString("refreshToken")
+                    
+                    if (newAccessToken.isNotEmpty()) {
+                        // Save new tokens
+                        runBlocking {
+                            if (newRefreshToken.isNotEmpty()) {
+                                tokenManager.updateTokens(newAccessToken, newRefreshToken)
+                            } else {
+                                tokenManager.updateAccessToken(newAccessToken)
+                            }
+                        }
+                        
+                        android.util.Log.d("ApiClient", "Token refreshed successfully!")
+                        
+                        // Retry original request with new token
+                        response.request.newBuilder()
+                            .header("Authorization", "Bearer $newAccessToken")
+                            .header("X-Retry-Auth", "true")
+                            .build()
+                    } else {
+                        android.util.Log.e("ApiClient", "Refresh response missing accessToken")
+                        null
+                    }
+                } else {
+                    android.util.Log.e("ApiClient", "Token refresh failed: ${refreshResponse.code}")
+                    // Clear tokens on refresh failure - user needs to re-login
+                    runBlocking { tokenManager.clearAll() }
+                    null
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ApiClient", "Token refresh exception: ${e.message}")
+                null
+            }
         }
     }
     
@@ -83,6 +173,7 @@ object ApiClient {
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
             .addInterceptor(createAuthInterceptor(tokenManager))
             .addInterceptor(loggingInterceptor)
+            .authenticator(createTokenAuthenticator(tokenManager))
             .retryOnConnectionFailure(true)
             .build()
     }
@@ -110,6 +201,13 @@ object ApiClient {
      */
     fun createUserApiService(tokenManager: TokenManager): UserApiService {
         return createRetrofit(tokenManager).create(UserApiService::class.java)
+    }
+    
+    /**
+     * Create Chat API Service with provided TokenManager
+     */
+    fun createChatApiService(tokenManager: TokenManager): ChatApiService {
+        return createRetrofit(tokenManager).create(ChatApiService::class.java)
     }
     
     /**

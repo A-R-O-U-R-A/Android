@@ -16,7 +16,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,47 +28,62 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.theme.*
+import com.example.aroura.ui.viewmodels.ChatUiState
+import com.example.aroura.ui.viewmodels.ChatViewModel
+import com.example.aroura.ui.viewmodels.ChatViewModelFactory
+import com.example.aroura.ui.viewmodels.UIChatMessage
 import kotlinx.coroutines.delay
 
-data class Message(val text: String, val isUser: Boolean, val timestamp: Long = System.currentTimeMillis())
-
 /**
- * Chat Screen - Premium Redesign
+ * Chat Screen - AI-Powered Mental Health Companion
  * 
  * Features:
- * - Calm, focused conversation space
- * - Smooth message animations
- * - Premium typing indicator
- * - Gentle glass-morphism bubbles
- * - Refined input bar
+ * - Real-time AI responses from Gemini
+ * - Two personas: Counselor and Best Friend
+ * - Message persistence in MongoDB
+ * - Smooth animations and premium UI
+ * - Crisis detection and safety responses
  */
 @Composable
 fun ChatScreen(mode: String, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val persona = if (mode == "Counselor") "counselor" else "bestfriend"
+    
+    val viewModel: ChatViewModel = viewModel(
+        key = "chat_$persona",
+        factory = ChatViewModelFactory(context, persona)
+    )
+    
+    val uiState by viewModel.uiState.collectAsState()
+    
     var messageText by remember { mutableStateOf("") }
-    var isTyping by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val messages = remember {
-        mutableStateListOf(
-            Message(
-                if (mode == "Counselor") 
-                    "Hello. I'm here to listen and support you. How are you feeling today?" 
-                else 
-                    "Hey there! 👋 I'm your buddy. What's on your mind?", 
-                false
-            )
-        )
-    }
     
     // Auto-scroll when new messages arrive
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+    LaunchedEffect(uiState.messages.size) {
+        if (uiState.messages.isNotEmpty()) {
+            listState.animateScrollToItem(uiState.messages.size - 1)
+        }
+    }
+    
+    // Show error snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            snackbarHostState.showSnackbar(
+                message = error,
+                actionLabel = "Retry",
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearError()
         }
     }
 
@@ -75,8 +92,13 @@ fun ChatScreen(mode: String, onBack: () -> Unit) {
 
         Scaffold(
             containerColor = Color.Transparent,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                PremiumChatTopBar(mode, onBack)
+                PremiumChatTopBar(
+                    mode = mode,
+                    onBack = onBack,
+                    onNewChat = { viewModel.startNewConversation() }
+                )
             },
             bottomBar = {
                 PremiumChatInputBar(
@@ -84,14 +106,11 @@ fun ChatScreen(mode: String, onBack: () -> Unit) {
                     onTextChange = { messageText = it },
                     onSend = {
                         if (messageText.isNotBlank()) {
-                            messages.add(Message(messageText, true))
-                            val userMessage = messageText
+                            viewModel.sendMessage(messageText)
                             messageText = ""
-                            
-                            // Simulate AI response
-                            isTyping = true
                         }
-                    }
+                    },
+                    enabled = !uiState.isSending
                 )
             }
         ) { paddingValues ->
@@ -126,40 +145,100 @@ fun ChatScreen(mode: String, onBack: () -> Unit) {
                         }
                     }
                 }
+                
+                // Welcome message when no messages
+                if (uiState.showWelcome && uiState.messages.isEmpty()) {
+                    item {
+                        WelcomeMessage(mode = mode)
+                    }
+                }
 
-                items(messages, key = { it.timestamp }) { msg ->
+                items(uiState.messages, key = { it.id }) { msg ->
                     PremiumChatBubble(message = msg, mode = mode)
                 }
                 
                 // Typing indicator
-                if (isTyping) {
+                if (uiState.aiTyping) {
                     item {
                         TypingIndicator(mode = mode)
-                        
-                        // Simulate response after delay
-                        LaunchedEffect(Unit) {
-                            delay(1500)
-                            isTyping = false
-                            messages.add(
-                                Message(
-                                    if (mode == "Counselor")
-                                        "I hear you. Thank you for sharing that with me. Would you like to tell me more about how that makes you feel?"
-                                    else
-                                        "I totally get that! Want to talk about it more? I'm all ears 👂",
-                                    false
-                                )
-                            )
-                        }
                     }
+                }
+            }
+            
+            // Loading overlay for initial load
+            if (uiState.isLoading && uiState.messages.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(DeepSurface.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MutedTeal)
                 }
             }
         }
     }
 }
 
+@Composable
+private fun WelcomeMessage(mode: String) {
+    val accentColor = if (mode == "Counselor") SoftBlue else CalmingPeach
+    
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .background(
+                    brush = Brush.linearGradient(
+                        colors = listOf(accentColor.copy(alpha = 0.3f), MutedTeal.copy(alpha = 0.2f))
+                    ),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Text(
+            text = if (mode == "Counselor") 
+                "Hello, I'm here to listen" 
+            else 
+                "Hey there! 👋",
+            style = MaterialTheme.typography.titleLarge,
+            color = OffWhite,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = if (mode == "Counselor")
+                "Share what's on your mind. Everything you say stays private."
+            else
+                "I'm your buddy! Tell me what's going on in your life.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextDarkSecondary,
+            modifier = Modifier.padding(horizontal = 32.dp),
+            lineHeight = 22.sp
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PremiumChatTopBar(mode: String, onBack: () -> Unit) {
+private fun PremiumChatTopBar(mode: String, onBack: () -> Unit, onNewChat: () -> Unit) {
     Surface(
         color = DeepSurface.copy(alpha = 0.8f),
         modifier = Modifier.fillMaxWidth()
@@ -217,6 +296,14 @@ private fun PremiumChatTopBar(mode: String, onBack: () -> Unit) {
                 }
             },
             actions = {
+                // New chat button
+                IconButton(onClick = onNewChat) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "New Chat",
+                        tint = TextDarkSecondary
+                    )
+                }
                 IconButton(onClick = { }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
@@ -233,7 +320,7 @@ private fun PremiumChatTopBar(mode: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun PremiumChatBubble(message: Message, mode: String) {
+private fun PremiumChatBubble(message: UIChatMessage, mode: String) {
     // Entrance animation
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -249,10 +336,10 @@ private fun PremiumChatBubble(message: Message, mode: String) {
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start,
+            horizontalArrangement = if (message.isFromUser) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.Bottom
         ) {
-            if (!message.isUser) {
+            if (!message.isFromUser) {
                 // AI Avatar
                 Box(
                     modifier = Modifier
@@ -276,17 +363,20 @@ private fun PremiumChatBubble(message: Message, mode: String) {
             }
 
             Surface(
-                color = if (message.isUser) 
-                    accentColor.copy(alpha = 0.15f)
-                else 
-                    DeepSurface.copy(alpha = 0.7f),
+                color = when {
+                    message.isLoading -> DeepSurface.copy(alpha = 0.5f)
+                    message.isError -> Color(0xFF5C2A2A).copy(alpha = 0.7f)
+                    message.isCrisisResponse -> Color(0xFF2A3D5C).copy(alpha = 0.8f)
+                    message.isFromUser -> accentColor.copy(alpha = 0.15f)
+                    else -> DeepSurface.copy(alpha = 0.7f)
+                },
                 shape = RoundedCornerShape(
                     topStart = 20.dp,
                     topEnd = 20.dp,
-                    bottomStart = if (message.isUser) 20.dp else 6.dp,
-                    bottomEnd = if (message.isUser) 6.dp else 20.dp
+                    bottomStart = if (message.isFromUser) 20.dp else 6.dp,
+                    bottomEnd = if (message.isFromUser) 6.dp else 20.dp
                 ),
-                border = if (message.isUser) null else ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                border = if (message.isFromUser) null else ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
                     brush = Brush.linearGradient(
                         colors = listOf(
                             Color.White.copy(alpha = 0.08f),
@@ -296,13 +386,52 @@ private fun PremiumChatBubble(message: Message, mode: String) {
                 ),
                 modifier = Modifier.widthIn(max = 280.dp)
             ) {
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = OffWhite,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    lineHeight = 24.sp
-                )
+                if (message.isLoading) {
+                    // Show loading indicator
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(accentColor.copy(alpha = 0.5f), CircleShape)
+                            )
+                        }
+                    }
+                } else {
+                    Column {
+                        if (message.isCrisisResponse) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = SoftBlue,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Support Resources Available",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = SoftBlue
+                                )
+                            }
+                        }
+                        Text(
+                            text = message.content,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (message.isError) Color(0xFFEF9A9A) else OffWhite,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            lineHeight = 24.sp
+                        )
+                    }
+                }
             }
         }
     }
@@ -403,7 +532,8 @@ private fun TypingIndicator(mode: String) {
 private fun PremiumChatInputBar(
     text: String,
     onTextChange: (String) -> Unit,
-    onSend: () -> Unit
+    onSend: () -> Unit,
+    enabled: Boolean = true
 ) {
     Surface(
         color = DeepSurface.copy(alpha = 0.95f),
@@ -427,12 +557,13 @@ private fun PremiumChatInputBar(
         ) {
             IconButton(
                 onClick = { },
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp),
+                enabled = enabled
             ) {
                 Icon(
                     Icons.Default.Add, 
                     null, 
-                    tint = TextDarkSecondary,
+                    tint = if (enabled) TextDarkSecondary else TextDarkSecondary.copy(alpha = 0.3f),
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -444,7 +575,7 @@ private fun PremiumChatInputBar(
             ) {
                 if (text.isEmpty()) {
                     Text(
-                        text = "Type a message...",
+                        text = if (enabled) "Type a message..." else "Waiting for response...",
                         color = TextDarkSecondary.copy(alpha = 0.5f),
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -452,6 +583,7 @@ private fun PremiumChatInputBar(
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
+                    enabled = enabled,
                     textStyle = TextStyle(
                         color = OffWhite,
                         fontSize = 16.sp
@@ -462,7 +594,7 @@ private fun PremiumChatInputBar(
             }
 
             // Send button with animation
-            val sendEnabled = text.isNotBlank()
+            val sendEnabled = text.isNotBlank() && enabled
             val sendScale by animateFloatAsState(
                 targetValue = if (sendEnabled) 1f else 0.8f,
                 animationSpec = spring(stiffness = Spring.StiffnessMedium),
