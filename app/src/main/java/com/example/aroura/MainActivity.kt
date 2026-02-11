@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aroura.data.api.ApiClient
+import com.example.aroura.data.local.PreferencesManager
 import com.example.aroura.data.local.TokenManager
 import com.example.aroura.data.repository.UserRepository
 import com.example.aroura.ui.screens.HomeScreen
@@ -48,7 +49,8 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     
     // Lazy initialization of managers/services outside compose
-    private val tokenManager by lazy { TokenManager(applicationContext) }
+    private val tokenManager by lazy { TokenManager.getInstance(applicationContext) }
+    private val preferencesManager by lazy { PreferencesManager(applicationContext) }
     private val userApiService by lazy { ApiClient.createUserApiService(tokenManager) }
     private val userRepository by lazy { UserRepository(userApiService, tokenManager, applicationContext) }
     
@@ -65,8 +67,14 @@ class MainActivity : ComponentActivity() {
                         onSplashComplete = { showSplash = false }
                     )
                 } else {
+                    // Run one-time migration from legacy DataStore
+                    LaunchedEffect(Unit) {
+                        tokenManager.migrateFromLegacyDataStoreIfNeeded()
+                    }
+                    
                     // Use pre-initialized lazy values
                     val localTokenManager = remember { tokenManager }
+                    val localPreferencesManager = remember { preferencesManager }
                     val localUserRepository = remember { userRepository }
                     
                     // Create AuthViewModel with factory
@@ -133,6 +141,7 @@ class MainActivity : ComponentActivity() {
                             )
                             "home" -> HomeScreen(
                                 profileViewModel = profileViewModel,
+                                preferencesManager = localPreferencesManager,
                                 onNavigateToChat = { 
                                     // Logout - navigate back to login (not welcome)
                                     authViewModel.logout()

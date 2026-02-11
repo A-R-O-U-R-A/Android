@@ -42,6 +42,7 @@ import com.example.aroura.data.ReflectTestId
 import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
 import com.example.aroura.ui.screens.reflect.TestFlowScreen
 import com.example.aroura.ui.viewmodels.ProfileViewModel
+import com.example.aroura.data.local.PreferencesManager
 
 /**
  * Home Screen - Main Entry Point
@@ -56,6 +57,7 @@ import com.example.aroura.ui.viewmodels.ProfileViewModel
 @Composable
 fun HomeScreen(
     profileViewModel: ProfileViewModel,
+    preferencesManager: PreferencesManager,
     onNavigateToChat: () -> Unit,
     onNavigateToCalmAnxiety: () -> Unit = {},
     onNavigateToMoodJournal: () -> Unit = {}
@@ -148,9 +150,18 @@ fun HomeScreen(
                         onNavigate = { dest -> profileNavigationState = dest },
                         onLogout = onNavigateToChat // This triggers navigation back to Welcome screen
                     )
-                    "language" -> LanguageScreen(onBack = { profileNavigationState = "menu" })
-                    "privacy" -> PrivacyScreen(onBack = { profileNavigationState = "menu" })
-                    "devotional" -> DevotionalPreferencesScreen(onBack = { profileNavigationState = "menu" })
+                    "language" -> LanguageScreen(
+                        preferencesManager = preferencesManager,
+                        onBack = { profileNavigationState = "menu" }
+                    )
+                    "privacy" -> PrivacyScreen(
+                        preferencesManager = preferencesManager,
+                        onBack = { profileNavigationState = "menu" }
+                    )
+                    "devotional" -> DevotionalPreferencesScreen(
+                        preferencesManager = preferencesManager,
+                        onBack = { profileNavigationState = "menu" }
+                    )
                     "ethics" -> EthicsScreen(onBack = { profileNavigationState = "menu" })
                 }
             }
@@ -304,7 +315,10 @@ fun HomeScreen(
                                 )
                                 "helplines" -> HelplineScreen(onBack = { supportNavigationState = "menu" })
                                 "psychiatrist" -> PsychiatristContactScreen(onBack = { supportNavigationState = "menu" })
-                                "trusted" -> TrustedContactsScreen(onBack = { supportNavigationState = "menu" })
+                                "trusted" -> TrustedContactsScreen(
+                                    preferencesManager = preferencesManager,
+                                    onBack = { supportNavigationState = "menu" }
+                                )
                                 "emergency" -> EmergencyResourcesScreen(onBack = { supportNavigationState = "menu" })
                             }
                         }

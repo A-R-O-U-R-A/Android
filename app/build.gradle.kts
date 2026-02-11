@@ -20,11 +20,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
         // Build config for API URL
+        // For emulator: Use 10.0.2.2 (special IP that maps to host machine)
         // For physical device: Use your computer's local IP (find with ipconfig/ifconfig)
-        // For emulator: Use 10.0.2.2
-        // CHANGE THIS TO YOUR COMPUTER'S IP when testing on physical device:
-        buildConfigField("String", "API_BASE_URL", "\"http://192.168.29.175:5000/api/v1/\"")
+        // Current IP: 10.70.137.76 - Update this if your IP changes
+        buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:5000/api/v1/\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"792273673707-ekiibisf3te7rbsb1ikgqqjh3ipcldpf.apps.googleusercontent.com\"")
+        
+        // Facebook SDK credentials - move to local.properties for production
+        buildConfigField("String", "FACEBOOK_APP_ID", "\"886651777306679\"")
+        buildConfigField("String", "FACEBOOK_CLIENT_TOKEN", "\"1303b069a0c6e365aee2f9e3d1d03c6a\"")
+        
+        // Manifest placeholders for Facebook SDK meta-data
+        manifestPlaceholders["facebookAppId"] = "886651777306679"
+        manifestPlaceholders["facebookClientToken"] = "1303b069a0c6e365aee2f9e3d1d03c6a"
+        manifestPlaceholders["facebookLoginScheme"] = "fb886651777306679"
     }
 
     buildTypes {

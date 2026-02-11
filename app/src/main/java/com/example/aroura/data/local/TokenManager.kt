@@ -1,109 +1,141 @@
 package com.example.aroura.data.local
 
 import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+
+private const val TAG = "TokenManager"
 
 /**
- * Token Manager - Secure Token Storage
+ * Token Manager - Secure Token Storage (Singleton)
  * 
- * Uses DataStore Preferences for token persistence.
- * In production, consider using EncryptedSharedPreferences for added security.
+ * Uses EncryptedSharedPreferences (AES-256) for secure token persistence.
+ * Migrates from legacy DataStore on first launch after update.
+ * Provides Flow-based reactive access via StateFlows.
+ * Synchronous reads for OkHttp interceptors — no runBlocking needed.
+ * 
+ * IMPORTANT: Use getInstance(context) to get the singleton instance.
  */
-class TokenManager(private val context: Context) {
+class TokenManager private constructor(private val context: Context) {
     
     companion object {
-        private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_tokens")
+        private const val PREFS_NAME = "aroura_secure_prefs"
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_REFRESH_TOKEN = "refresh_token"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_USER_EMAIL = "user_email"
+        private const val KEY_USER_NAME = "user_name"
+        private const val KEY_USER_AVATAR = "user_avatar"
+        private const val KEY_AUTH_PROVIDER = "auth_provider"
+        private const val KEY_HAS_COMPLETED_ONBOARDING = "has_completed_onboarding"
+        private const val KEY_MIGRATION_DONE = "migration_from_datastore_done"
         
-        private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
-        private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
-        private val USER_ID_KEY = stringPreferencesKey("user_id")
-        private val USER_EMAIL_KEY = stringPreferencesKey("user_email")
-        private val USER_NAME_KEY = stringPreferencesKey("user_name")
-        private val USER_AVATAR_KEY = stringPreferencesKey("user_avatar")
-        private val AUTH_PROVIDER_KEY = stringPreferencesKey("auth_provider")
-        private val HAS_COMPLETED_ONBOARDING_KEY = stringPreferencesKey("has_completed_onboarding")
+        // Legacy DataStore reference — kept only for migration
+        private val Context.legacyDataStore by preferencesDataStore(name = "auth_tokens")
+        
+        @Volatile
+        private var INSTANCE: TokenManager? = null
+        
+        /**
+         * Get singleton instance of TokenManager.
+         * Thread-safe double-checked locking pattern.
+         */
+        fun getInstance(context: Context): TokenManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: TokenManager(context.applicationContext).also { 
+                    INSTANCE = it 
+                    Log.d(TAG, "TokenManager singleton created")
+                }
+            }
+        }
     }
+    
+    private val encryptedPrefs: SharedPreferences = try {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            context,
+            PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to create EncryptedSharedPreferences, falling back", e)
+        context.getSharedPreferences("${PREFS_NAME}_fallback", Context.MODE_PRIVATE)
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Reactive State (StateFlows — replaces DataStore Flows)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    private val _accessTokenFlow = MutableStateFlow(encryptedPrefs.getString(KEY_ACCESS_TOKEN, null))
+    private val _refreshTokenFlow = MutableStateFlow(encryptedPrefs.getString(KEY_REFRESH_TOKEN, null))
+    private val _userIdFlow = MutableStateFlow(encryptedPrefs.getString(KEY_USER_ID, null))
+    private val _userEmailFlow = MutableStateFlow(encryptedPrefs.getString(KEY_USER_EMAIL, null))
+    private val _userNameFlow = MutableStateFlow(encryptedPrefs.getString(KEY_USER_NAME, null))
+    private val _userAvatarFlow = MutableStateFlow(encryptedPrefs.getString(KEY_USER_AVATAR, null))
+    private val _hasCompletedOnboardingFlow = MutableStateFlow(
+        encryptedPrefs.getString(KEY_HAS_COMPLETED_ONBOARDING, null) == "true"
+    )
+    
+    val accessTokenFlow: StateFlow<String?> = _accessTokenFlow.asStateFlow()
+    val refreshTokenFlow: StateFlow<String?> = _refreshTokenFlow.asStateFlow()
+    val userIdFlow: StateFlow<String?> = _userIdFlow.asStateFlow()
+    val userEmailFlow: StateFlow<String?> = _userEmailFlow.asStateFlow()
+    val userNameFlow: StateFlow<String?> = _userNameFlow.asStateFlow()
+    val userAvatarFlow: StateFlow<String?> = _userAvatarFlow.asStateFlow()
+    val hasCompletedOnboardingFlow: StateFlow<Boolean> = _hasCompletedOnboardingFlow.asStateFlow()
+    val isLoggedInFlow: Flow<Boolean> = _accessTokenFlow.map { it != null }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Synchronous Reads (for OkHttp interceptor — no runBlocking!)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    fun getAccessTokenSync(): String? = _accessTokenFlow.value
+    fun getRefreshTokenSync(): String? = _refreshTokenFlow.value
+    fun isLoggedIn(): Boolean = _accessTokenFlow.value != null
     
     // ═══════════════════════════════════════════════════════════════════════════
     // Token Operations
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * Save tokens after successful authentication
-     */
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
-        context.dataStore.edit { prefs ->
-            prefs[ACCESS_TOKEN_KEY] = accessToken
-            prefs[REFRESH_TOKEN_KEY] = refreshToken
-        }
+        encryptedPrefs.edit()
+            .putString(KEY_ACCESS_TOKEN, accessToken)
+            .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .apply()
+        _accessTokenFlow.value = accessToken
+        _refreshTokenFlow.value = refreshToken
     }
     
-    /**
-     * Get access token as Flow
-     */
-    val accessTokenFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[ACCESS_TOKEN_KEY]
-    }
-    
-    /**
-     * Get refresh token as Flow
-     */
-    val refreshTokenFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[REFRESH_TOKEN_KEY]
-    }
-    
-    /**
-     * Get access token synchronously (for interceptor)
-     */
-    fun getAccessTokenSync(): String? {
-        return runBlocking {
-            context.dataStore.data.first()[ACCESS_TOKEN_KEY]
-        }
-    }
-    
-    /**
-     * Get refresh token synchronously
-     */
-    fun getRefreshTokenSync(): String? {
-        return runBlocking {
-            context.dataStore.data.first()[REFRESH_TOKEN_KEY]
-        }
-    }
-    
-    /**
-     * Update access token (after refresh)
-     */
     suspend fun updateAccessToken(accessToken: String) {
-        context.dataStore.edit { prefs ->
-            prefs[ACCESS_TOKEN_KEY] = accessToken
-        }
+        encryptedPrefs.edit()
+            .putString(KEY_ACCESS_TOKEN, accessToken)
+            .apply()
+        _accessTokenFlow.value = accessToken
     }
     
-    /**
-     * Update both tokens (after refresh with rotation)
-     */
     suspend fun updateTokens(accessToken: String, refreshToken: String) {
-        context.dataStore.edit { prefs ->
-            prefs[ACCESS_TOKEN_KEY] = accessToken
-            prefs[REFRESH_TOKEN_KEY] = refreshToken
-        }
+        saveTokens(accessToken, refreshToken)
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // User Data Operations
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * Save user data after authentication
-     */
     suspend fun saveUserData(
         userId: String,
         email: String,
@@ -111,95 +143,107 @@ class TokenManager(private val context: Context) {
         avatar: String?,
         authProvider: String
     ) {
-        context.dataStore.edit { prefs ->
-            prefs[USER_ID_KEY] = userId
-            prefs[USER_EMAIL_KEY] = email
-            prefs[USER_NAME_KEY] = displayName
-            avatar?.let { prefs[USER_AVATAR_KEY] = it }
-            prefs[AUTH_PROVIDER_KEY] = authProvider
-        }
+        val editor = encryptedPrefs.edit()
+            .putString(KEY_USER_ID, userId)
+            .putString(KEY_USER_EMAIL, email)
+            .putString(KEY_USER_NAME, displayName)
+            .putString(KEY_AUTH_PROVIDER, authProvider)
+        if (avatar != null) editor.putString(KEY_USER_AVATAR, avatar)
+        editor.apply()
+        
+        _userIdFlow.value = userId
+        _userEmailFlow.value = email
+        _userNameFlow.value = displayName
+        _userAvatarFlow.value = avatar
     }
     
-    /**
-     * Get user ID as Flow
-     */
-    val userIdFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[USER_ID_KEY]
-    }
-    
-    /**
-     * Get user email as Flow
-     */
-    val userEmailFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[USER_EMAIL_KEY]
-    }
-    
-    /**
-     * Get user display name as Flow
-     */
-    val userNameFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[USER_NAME_KEY]
-    }
-    
-    /**
-     * Get user avatar URL as Flow
-     */
-    val userAvatarFlow: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[USER_AVATAR_KEY]
-    }
-    
-    /**
-     * Check if user has completed onboarding (first launch)
-     */
-    val hasCompletedOnboardingFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[HAS_COMPLETED_ONBOARDING_KEY] == "true"
-    }
-    
-    /**
-     * Mark onboarding as completed
-     */
     suspend fun setOnboardingCompleted() {
-        context.dataStore.edit { prefs ->
-            prefs[HAS_COMPLETED_ONBOARDING_KEY] = "true"
-        }
-    }
-    
-    /**
-     * Check if user is logged in
-     */
-    val isLoggedInFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[ACCESS_TOKEN_KEY] != null
-    }
-    
-    /**
-     * Check if logged in synchronously
-     */
-    fun isLoggedIn(): Boolean {
-        return runBlocking {
-            context.dataStore.data.first()[ACCESS_TOKEN_KEY] != null
-        }
+        encryptedPrefs.edit()
+            .putString(KEY_HAS_COMPLETED_ONBOARDING, "true")
+            .apply()
+        _hasCompletedOnboardingFlow.value = true
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // Clear Operations
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * Clear all tokens and user data (logout)
-     */
     suspend fun clearAll() {
-        context.dataStore.edit { prefs ->
-            prefs.clear()
-        }
+        encryptedPrefs.edit().clear().apply()
+        _accessTokenFlow.value = null
+        _refreshTokenFlow.value = null
+        _userIdFlow.value = null
+        _userEmailFlow.value = null
+        _userNameFlow.value = null
+        _userAvatarFlow.value = null
+        _hasCompletedOnboardingFlow.value = false
     }
     
-    /**
-     * Clear tokens only
-     */
     suspend fun clearTokens() {
-        context.dataStore.edit { prefs ->
-            prefs.remove(ACCESS_TOKEN_KEY)
-            prefs.remove(REFRESH_TOKEN_KEY)
+        encryptedPrefs.edit()
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .apply()
+        _accessTokenFlow.value = null
+        _refreshTokenFlow.value = null
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Migration from Legacy DataStore
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Migrate tokens from legacy plain-text DataStore to EncryptedSharedPreferences.
+     * Call once during app startup (MainActivity.onCreate).
+     * Safe to call multiple times — migration flag prevents re-execution.
+     */
+    suspend fun migrateFromLegacyDataStoreIfNeeded() {
+        if (encryptedPrefs.getBoolean(KEY_MIGRATION_DONE, false)) return
+        
+        try {
+            val legacyPrefs = context.legacyDataStore.data.first()
+            val oldKeys = listOf(
+                Pair(stringPreferencesKey("access_token"), KEY_ACCESS_TOKEN),
+                Pair(stringPreferencesKey("refresh_token"), KEY_REFRESH_TOKEN),
+                Pair(stringPreferencesKey("user_id"), KEY_USER_ID),
+                Pair(stringPreferencesKey("user_email"), KEY_USER_EMAIL),
+                Pair(stringPreferencesKey("user_name"), KEY_USER_NAME),
+                Pair(stringPreferencesKey("user_avatar"), KEY_USER_AVATAR),
+                Pair(stringPreferencesKey("auth_provider"), KEY_AUTH_PROVIDER),
+                Pair(stringPreferencesKey("has_completed_onboarding"), KEY_HAS_COMPLETED_ONBOARDING),
+            )
+            
+            val editor = encryptedPrefs.edit()
+            var migrated = false
+            
+            for ((oldKey, newKey) in oldKeys) {
+                val value: String? = legacyPrefs[oldKey]
+                if (value != null) {
+                    editor.putString(newKey, value)
+                    migrated = true
+                }
+            }
+            
+            editor.putBoolean(KEY_MIGRATION_DONE, true).apply()
+            
+            if (migrated) {
+                // Refresh all StateFlows with migrated data
+                _accessTokenFlow.value = encryptedPrefs.getString(KEY_ACCESS_TOKEN, null)
+                _refreshTokenFlow.value = encryptedPrefs.getString(KEY_REFRESH_TOKEN, null)
+                _userIdFlow.value = encryptedPrefs.getString(KEY_USER_ID, null)
+                _userEmailFlow.value = encryptedPrefs.getString(KEY_USER_EMAIL, null)
+                _userNameFlow.value = encryptedPrefs.getString(KEY_USER_NAME, null)
+                _userAvatarFlow.value = encryptedPrefs.getString(KEY_USER_AVATAR, null)
+                _hasCompletedOnboardingFlow.value =
+                    encryptedPrefs.getString(KEY_HAS_COMPLETED_ONBOARDING, null) == "true"
+                
+                // Clear old unencrypted DataStore
+                context.legacyDataStore.edit { it.clear() }
+                Log.d(TAG, "Migrated from DataStore to EncryptedSharedPreferences")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Migration failed (may be first install)", e)
+            encryptedPrefs.edit().putBoolean(KEY_MIGRATION_DONE, true).apply()
         }
     }
 }

@@ -46,7 +46,26 @@ import com.example.aroura.media.formatDuration
 @Composable
 fun CalmPlayerScreen(item: CalmMediaItem, onBack: () -> Unit) {
     val context = LocalContext.current
-    val audioPlayer = remember { AudioPlayerManager.getInstance(context) }
+    
+    // Use remember with key to avoid recreating player on recomposition
+    val audioPlayer = remember(context) { 
+        try {
+            AudioPlayerManager.getInstance(context)
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    // Handle case where player couldn't be initialized
+    if (audioPlayer == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Unable to initialize audio player", color = Color.White)
+        }
+        return
+    }
     
     // Collect player state
     val playerState by audioPlayer.playerState.collectAsState()
@@ -66,19 +85,31 @@ fun CalmPlayerScreen(item: CalmMediaItem, onBack: () -> Unit) {
     val textWhite = Color.White
     val textGray = Color(0xFFB3B3B3)
     
-    // Start playing when screen opens
+    // Start playing when screen opens - with safety checks
     LaunchedEffect(item.id) {
         visible = true
         if (item.streamingUrl.isNotEmpty()) {
-            audioPlayer.play(
-                url = item.streamingUrl,
-                backupUrl = item.streamingUrlBackup,
-                title = item.title,
-                subtitle = item.subtitle,
-                loop = item.loopAllowed
-            )
+            try {
+                audioPlayer.play(
+                    url = item.streamingUrl,
+                    backupUrl = item.streamingUrlBackup,
+                    title = item.title,
+                    subtitle = item.subtitle,
+                    loop = item.loopAllowed
+                )
+            } catch (e: Exception) {
+                Toast.makeText(context, "Failed to play audio", Toast.LENGTH_SHORT).show()
+            }
         } else {
             Toast.makeText(context, "Audio not available for this track", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    // Cleanup when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            // Don't stop the audio - let it play in background
+            // User can pause manually if needed
         }
     }
     

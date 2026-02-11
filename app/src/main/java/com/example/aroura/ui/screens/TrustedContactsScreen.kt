@@ -25,22 +25,34 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.aroura.data.local.PreferencesManager
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.theme.*
+import kotlinx.coroutines.launch
 
 /**
  * Trusted Contacts Screen - Premium Redesign
  * 
  * Features:
+ * - Persisted contact list via PreferencesManager
  * - Animated contact list
  * - Premium delete interaction
  * - Floating add button
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrustedContactsScreen(onBack: () -> Unit) {
+fun TrustedContactsScreen(
+    preferencesManager: PreferencesManager,
+    onBack: () -> Unit
+) {
     var visible by remember { mutableStateOf(false) }
-    val contacts = remember { mutableStateListOf("Mom", "Partner", "Best Friend") }
+    val savedContacts by preferencesManager.trustedContactsFlow.collectAsState(initial = emptyList())
+    val contacts = remember(savedContacts) { savedContacts.toMutableList().toMutableStateList() }
+    val scope = rememberCoroutineScope()
+    
+    fun saveContacts() {
+        scope.launch { preferencesManager.saveTrustedContacts(contacts.toList()) }
+    }
     
     LaunchedEffect(Unit) { visible = true }
 
@@ -91,7 +103,10 @@ fun TrustedContactsScreen(onBack: () -> Unit) {
                     )
                 ) {
                     IconButton(
-                        onClick = { contacts.add("New Contact") },
+                        onClick = { 
+                            contacts.add("New Contact")
+                            saveContacts()
+                        },
                         modifier = Modifier
                             .size(44.dp)
                             .background(MutedTeal.copy(alpha = 0.15f), CircleShape)
@@ -164,7 +179,10 @@ fun TrustedContactsScreen(onBack: () -> Unit) {
                         ) {
                             PremiumContactCard(
                                 name = contact,
-                                onDelete = { contacts.remove(contact) }
+                                onDelete = { 
+                                    contacts.remove(contact)
+                                    saveContacts()
+                                }
                             )
                         }
                     }

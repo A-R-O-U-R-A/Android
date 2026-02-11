@@ -10,7 +10,11 @@ import retrofit2.http.Query
 /**
  * Audio API Service
  * 
- * Endpoints for calm/meditation audio streaming from legal sources
+ * Endpoints for calm/peaceful audio streaming
+ * Sources: Freesound (sounds), Jamendo (music)
+ * 
+ * NO devotional/religious content.
+ * NO LibriVox or Internet Archive.
  */
 interface AudioApiService {
     
@@ -29,61 +33,62 @@ interface AudioApiService {
     ): Response<AudioCategoryResponse>
     
     /**
-     * Search across all audio sources
+     * Search across all audio sources (calm-filtered)
      */
     @GET("audio/search")
     suspend fun searchAudio(
         @Query("q") query: String,
-        @Query("source") source: String? = "all",
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 20
     ): Response<AudioSearchResponse>
     
     /**
-     * Get nature sounds
+     * Get nature sounds (rain, ocean, forest, etc.)
      */
     @GET("audio/nature")
     suspend fun getNatureSounds(): Response<AudioCategoryResponse>
     
     /**
-     * Get meditation sounds
+     * Get ambient soundscapes
+     */
+    @GET("audio/ambient")
+    suspend fun getAmbientSounds(): Response<AudioCategoryResponse>
+    
+    /**
+     * Get meditation sounds (singing bowls, bells, etc.)
      */
     @GET("audio/meditation")
     suspend fun getMeditationSounds(): Response<AudioCategoryResponse>
     
     /**
-     * Get calm music
+     * Get ASMR sounds (soft tapping, pages, etc.)
+     */
+    @GET("audio/asmr")
+    suspend fun getASMRSounds(): Response<AudioCategoryResponse>
+    
+    /**
+     * Get sleep sounds (white noise, brown noise, etc.)
+     */
+    @GET("audio/sleep")
+    suspend fun getSleepSounds(): Response<AudioCategoryResponse>
+    
+    /**
+     * Get focus/study music
+     */
+    @GET("audio/focus")
+    suspend fun getFocusMusic(): Response<AudioCategoryResponse>
+    
+    /**
+     * Get calm instrumental music
      */
     @GET("audio/music")
-    suspend fun getCalmMusic(
-        @Query("tags") tags: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
-    ): Response<AudioCategoryResponse>
+    suspend fun getCalmMusic(): Response<AudioCategoryResponse>
     
     /**
-     * Get devotional content
-     */
-    @GET("audio/devotional")
-    suspend fun getDevotionalContent(): Response<AudioCategoryResponse>
-    
-    /**
-     * Get audiobooks
-     */
-    @GET("audio/audiobooks")
-    suspend fun getAudiobooks(): Response<AudioCategoryResponse>
-    
-    /**
-     * Get featured content
-     */
-    @GET("audio/featured")
-    suspend fun getFeaturedContent(): Response<AudioCategoryResponse>
-    
-    /**
-     * Get quick calm tracks (under 5 minutes)
+     * Get quick picks (curated selection)
      */
     @GET("audio/quick")
-    suspend fun getQuickCalm(): Response<AudioCategoryResponse>
+    suspend fun getQuickPicks(): Response<AudioCategoryResponse>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -139,12 +144,19 @@ data class AudioAllResponse(
 
 @Serializable
 data class AudioCategories(
-    val nature: AudioCategory? = null,
-    val meditation: AudioCategory? = null,
-    @SerialName("calm_music")
-    val calmMusic: AudioCategory? = null,
-    val devotional: AudioCategory? = null,
-    val audiobooks: AudioCategory? = null
+    val nature: AudioCategoryData? = null,
+    val ambient: AudioCategoryData? = null,
+    val meditation: AudioCategoryData? = null,
+    val asmr: AudioCategoryData? = null,
+    val sleep: AudioCategoryData? = null,
+    val focus: AudioCategoryData? = null,
+    val music: AudioCategoryData? = null
+)
+
+@Serializable
+data class AudioCategoryData(
+    val items: List<AudioItem> = emptyList(),
+    val total: Int = 0
 )
 
 @Serializable

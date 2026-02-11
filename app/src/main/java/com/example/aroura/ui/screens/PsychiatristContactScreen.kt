@@ -16,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -27,6 +26,8 @@ import com.example.aroura.ui.theme.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PsychiatristContactScreen(onBack: () -> Unit) {
+    // TODO: Replace with real data from a backend API or verified database.
+    // These are placeholder names for demonstration purposes only.
     val doctors = listOf(
         "Dr. Anjali Sharma", "Dr. Rajesh Verma", "Dr. Sarah Lee", "Dr. Emily Chen"
     )
@@ -52,6 +53,22 @@ fun PsychiatristContactScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(padding).padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                // Demo disclaimer badge
+                item {
+                    Surface(
+                        color = CalmingLavender.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "⚠️ Demo data — not verified professionals. In production, this will be populated from a curated, verified database.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = CalmingLavender,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+                
                 items(doctors) { name ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = DeepSurface.copy(alpha = 0.6f)),

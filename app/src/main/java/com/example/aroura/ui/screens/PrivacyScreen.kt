@@ -19,25 +19,36 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.aroura.data.local.PreferencesManager
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.theme.*
+import kotlinx.coroutines.launch
 
 /**
  * Privacy Screen - Premium Redesign
  * 
  * Features:
- * - Animated toggle switches
+ * - Animated toggle switches with persisted state
  * - Premium action buttons
  * - Smooth entrance animations
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrivacyScreen(onBack: () -> Unit) {
+fun PrivacyScreen(
+    preferencesManager: PreferencesManager,
+    onBack: () -> Unit
+) {
     var visible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Persisted toggle states
+    val usageData by preferencesManager.usageDataFlow.collectAsState(initial = true)
+    val personalization by preferencesManager.personalizationFlow.collectAsState(initial = true)
+    val analytics by preferencesManager.analyticsFlow.collectAsState(initial = false)
+    
     LaunchedEffect(Unit) { visible = true }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -92,7 +103,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
                         PremiumPrivacyToggle(
                             "Share Usage Data",
                             "Help us improve A.R.O.U.R.A",
-                            true
+                            checked = usageData,
+                            onCheckedChange = { scope.launch { preferencesManager.saveUsageData(it) } }
                         )
                     }
                 }
@@ -108,7 +120,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
                         PremiumPrivacyToggle(
                             "Personalized Suggestions",
                             "Tailor content to your mood",
-                            true
+                            checked = personalization,
+                            onCheckedChange = { scope.launch { preferencesManager.savePersonalization(it) } }
                         )
                     }
                 }
@@ -124,7 +137,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
                         PremiumPrivacyToggle(
                             "Allow Analytics",
                             "Anonymous performance tracking",
-                            false
+                            checked = analytics,
+                            onCheckedChange = { scope.launch { preferencesManager.saveAnalytics(it) } }
                         )
                     }
                 }
@@ -172,9 +186,12 @@ fun PrivacyScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun PremiumPrivacyToggle(title: String, subtitle: String, initial: Boolean) {
-    var checked by remember { mutableStateOf(initial) }
-    
+private fun PremiumPrivacyToggle(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     val backgroundColor by animateColorAsState(
         targetValue = if (checked) MutedTeal.copy(alpha = 0.08f) else Color.Transparent,
         animationSpec = tween(200),
@@ -211,7 +228,7 @@ private fun PremiumPrivacyToggle(title: String, subtitle: String, initial: Boole
         
         Switch(
             checked = checked,
-            onCheckedChange = { checked = it },
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = MutedTeal,
                 checkedTrackColor = MutedTeal.copy(alpha = 0.3f),
@@ -274,8 +291,3 @@ private fun PremiumActionButton(
         }
     }
 }
-
-// Legacy compatibility
-@Composable
-fun PrivacyToggle(title: String, subtitle: String, initial: Boolean) = 
-    PremiumPrivacyToggle(title, subtitle, initial)

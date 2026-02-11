@@ -146,7 +146,7 @@ class AudioPlayerManager private constructor(private val context: Context) {
             .setBandwidthMeter(bandwidthMeter)
             .setMediaSourceFactory(mediaSourceFactory)
             .setHandleAudioBecomingNoisy(true)  // Pause when headphones disconnected
-            .setWakeMode(C.WAKE_MODE_NETWORK)    // Keep network alive during playback
+            .setWakeMode(C.WAKE_MODE_NONE)       // Disable wake mode to avoid permission issues
             .build()
             .apply {
                 addListener(createPlayerListener())

@@ -293,6 +293,7 @@ class ChatViewModel(
 // VIEW MODEL FACTORY
 // ═════════════════════════════════════════════════════════════════════════════════
 
+// TODO: Replace with Hilt/Koin DI — this manual factory should be removed once a DI framework is adopted.
 class ChatViewModelFactory(
     private val context: Context,
     private val persona: String
@@ -301,7 +302,7 @@ class ChatViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
-            val tokenManager = TokenManager(context)
+            val tokenManager = TokenManager.getInstance(context)
             val chatApiService = ApiClient.createChatApiService(tokenManager)
             val repository = ChatRepository(chatApiService, tokenManager, context)
             

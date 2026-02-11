@@ -422,10 +422,3 @@ private fun StarVisualPremium() {
         )
     }
 }
-
-// Keep legacy functions for compatibility but mark private
-@Composable
-private fun MoonVisual() = MoonVisualPremium()
-
-@Composable
-private fun StarVisual() = StarVisualPremium()

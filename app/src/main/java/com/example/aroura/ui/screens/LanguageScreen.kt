@@ -23,8 +23,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.aroura.data.local.PreferencesManager
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.theme.*
+import kotlinx.coroutines.launch
 
 /**
  * Language Screen - Premium Redesign
@@ -32,14 +34,18 @@ import com.example.aroura.ui.theme.*
  * Features:
  * - Animated selection
  * - Premium language cards
- * - Smooth transitions
+ * - Persisted selection via PreferencesManager
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LanguageScreen(onBack: () -> Unit) {
+fun LanguageScreen(
+    preferencesManager: PreferencesManager,
+    onBack: () -> Unit
+) {
     var visible by remember { mutableStateOf(false) }
     val languages = listOf("English", "Hindi", "Spanish", "French", "German", "Chinese", "Japanese")
-    var selectedLanguage by remember { mutableStateOf("English") }
+    val selectedLanguage by preferencesManager.selectedLanguageFlow.collectAsState(initial = "English")
+    val scope = rememberCoroutineScope()
     
     LaunchedEffect(Unit) { visible = true }
 
@@ -110,7 +116,7 @@ fun LanguageScreen(onBack: () -> Unit) {
                         PremiumLanguageItem(
                             language = language,
                             isSelected = selectedLanguage == language,
-                            onClick = { selectedLanguage = language }
+                            onClick = { scope.launch { preferencesManager.saveLanguage(language) } }
                         )
                     }
                 }

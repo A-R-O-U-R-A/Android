@@ -236,9 +236,3 @@ private fun PremiumResourceCard(
         }
     }
 }
-
-// Legacy compatibility
-@Composable
-fun ResourceCard(title: String, subtitle: String, icon: ImageVector) {
-    PremiumResourceCard(title, subtitle, icon, MutedTeal)
-}

@@ -10,6 +10,7 @@ import com.example.aroura.data.repository.AuthRepository
 /**
  * Factory for creating AuthViewModel with dependencies
  */
+// TODO: Replace with Hilt/Koin DI — this manual factory should be removed once a DI framework is adopted.
 class AuthViewModelFactory(
     private val application: Application
 ) : ViewModelProvider.Factory {
@@ -17,7 +18,7 @@ class AuthViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AuthViewModel::class.java)) {
-            val tokenManager = TokenManager(application)
+            val tokenManager = TokenManager.getInstance(application)
             val apiService = ApiClient.createAuthApiService(tokenManager)
             val authRepository = AuthRepository(apiService, tokenManager)
             

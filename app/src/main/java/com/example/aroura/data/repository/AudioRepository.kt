@@ -11,11 +11,12 @@ private const val TAG = "AudioRepository"
 /**
  * Audio Repository
  * 
- * Manages audio content from legal streaming sources:
- * - Freesound (nature sounds, ambience)
- * - Jamendo (calm music)
- * - Internet Archive (devotional content)
- * - LibriVox (audiobooks)
+ * Manages calm audio content from:
+ * - Freesound (nature, ambient, meditation, asmr, sleep sounds)
+ * - Jamendo (calm instrumental music, focus music)
+ * 
+ * NO devotional/religious content.
+ * NO LibriVox or Internet Archive.
  */
 class AudioRepository(
     private val audioApiService: AudioApiService,
@@ -118,12 +119,80 @@ class AudioRepository(
     }
     
     /**
+     * Get ambient sounds
+     */
+    suspend fun getAmbientSounds(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
+        try {
+            val response = audioApiService.getAmbientSounds()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.items)
+            } else {
+                Result.failure(Exception("Failed to fetch ambient sounds"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get ambient sounds exception", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get ASMR sounds
+     */
+    suspend fun getASMRSounds(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
+        try {
+            val response = audioApiService.getASMRSounds()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.items)
+            } else {
+                Result.failure(Exception("Failed to fetch ASMR sounds"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get ASMR sounds exception", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get sleep sounds (white noise, etc.)
+     */
+    suspend fun getSleepSounds(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
+        try {
+            val response = audioApiService.getSleepSounds()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.items)
+            } else {
+                Result.failure(Exception("Failed to fetch sleep sounds"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get sleep sounds exception", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get focus/study music
+     */
+    suspend fun getFocusMusic(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
+        try {
+            val response = audioApiService.getFocusMusic()
+            if (response.isSuccessful && response.body()?.success == true) {
+                Result.success(response.body()!!.items)
+            } else {
+                Result.failure(Exception("Failed to fetch focus music"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Get focus music exception", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Get calm music
      */
-    suspend fun getCalmMusic(tags: String? = null): Result<List<AudioItem>> = 
+    suspend fun getCalmMusic(): Result<List<AudioItem>> = 
         withContext(Dispatchers.IO) {
             try {
-                val response = audioApiService.getCalmMusic(tags)
+                val response = audioApiService.getCalmMusic()
                 if (response.isSuccessful && response.body()?.success == true) {
                     Result.success(response.body()!!.items)
                 } else {
@@ -135,40 +204,6 @@ class AudioRepository(
             }
         }
     
-    /**
-     * Get devotional content
-     */
-    suspend fun getDevotionalContent(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
-        try {
-            val response = audioApiService.getDevotionalContent()
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.success(response.body()!!.items)
-            } else {
-                Result.failure(Exception("Failed to fetch devotional content"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Get devotional exception", e)
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get audiobooks
-     */
-    suspend fun getAudiobooks(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
-        try {
-            val response = audioApiService.getAudiobooks()
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.success(response.body()!!.items)
-            } else {
-                Result.failure(Exception("Failed to fetch audiobooks"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Get audiobooks exception", e)
-            Result.failure(e)
-        }
-    }
-    
     // ═══════════════════════════════════════════════════════════════════════════
     // SEARCH
     // ═══════════════════════════════════════════════════════════════════════════
@@ -178,13 +213,12 @@ class AudioRepository(
      */
     suspend fun searchAudio(
         query: String,
-        source: String = "all",
         page: Int = 1,
         limit: Int = 20
     ): Result<AudioSearchResponse> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Searching for: $query")
-            val response = audioApiService.searchAudio(query, source, page, limit)
+            val response = audioApiService.searchAudio(query, page, limit)
             
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
@@ -204,39 +238,22 @@ class AudioRepository(
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // FEATURED & QUICK
+    // QUICK PICKS
     // ═══════════════════════════════════════════════════════════════════════════
     
     /**
-     * Get featured content
+     * Get quick picks (curated selection)
      */
-    suspend fun getFeaturedContent(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
+    suspend fun getQuickPicks(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
         try {
-            val response = audioApiService.getFeaturedContent()
+            val response = audioApiService.getQuickPicks()
             if (response.isSuccessful && response.body()?.success == true) {
                 Result.success(response.body()!!.items)
             } else {
-                Result.failure(Exception("Failed to fetch featured content"))
+                Result.failure(Exception("Failed to fetch quick picks"))
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Get featured exception", e)
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Get quick calm tracks (under 5 minutes)
-     */
-    suspend fun getQuickCalm(): Result<List<AudioItem>> = withContext(Dispatchers.IO) {
-        try {
-            val response = audioApiService.getQuickCalm()
-            if (response.isSuccessful && response.body()?.success == true) {
-                Result.success(response.body()!!.items)
-            } else {
-                Result.failure(Exception("Failed to fetch quick calm"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Get quick calm exception", e)
+            Log.e(TAG, "Get quick picks exception", e)
             Result.failure(e)
         }
     }

@@ -292,16 +292,6 @@ private fun PremiumReflectOptionCard(
     }
 }
 
-// Legacy compatibility
-@Composable
-fun ReflectOptionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    iconColor: Color,
-    onClick: () -> Unit
-) = PremiumReflectOptionCard(title, subtitle, icon, iconColor, onClick)
-
 /**
  * Mood Check-In Screen - Premium Redesign
  */
@@ -956,19 +946,4 @@ private fun PremiumSaveButton(text: String, onClick: () -> Unit) {
             fontWeight = FontWeight.SemiBold
         )
     }
-}
-
-// Legacy compatibility
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun SimpleBackTopBar(title: String, onBack: () -> Unit) {
-    TopAppBar(
-        title = { Text(title, style = MaterialTheme.typography.titleMedium, color = OffWhite) },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = OffWhite)
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-    )
 }

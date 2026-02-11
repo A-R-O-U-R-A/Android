@@ -8,6 +8,7 @@ import com.example.aroura.data.repository.UserRepository
 /**
  * Factory for creating ProfileViewModel with dependencies
  */
+// TODO: Replace with Hilt/Koin DI — this manual factory should be removed once a DI framework is adopted.
 class ProfileViewModelFactory(
     private val application: Application,
     private val userRepository: UserRepository

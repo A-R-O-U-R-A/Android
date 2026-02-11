@@ -262,8 +262,3 @@ private fun PremiumApplyButton(onClick: () -> Unit) {
         )
     }
 }
-
-// Keep legacy function for compatibility
-@Composable
-fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) = 
-    PremiumFilterChip(label, selected, onClick)

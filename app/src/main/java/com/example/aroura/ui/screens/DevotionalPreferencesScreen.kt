@@ -12,14 +12,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.aroura.data.local.PreferencesManager
 import com.example.aroura.ui.components.AdvancedAuroraBackground
 import com.example.aroura.ui.theme.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DevotionalPreferencesScreen(onBack: () -> Unit) {
+fun DevotionalPreferencesScreen(
+    preferencesManager: PreferencesManager,
+    onBack: () -> Unit
+) {
     val options = listOf("Hinduism", "Islam", "Christianity", "Sikhism", "Buddhism", "Jainism", "Secular / Nature")
-    val selected = remember { mutableStateListOf("Hinduism", "Secular / Nature") }
+    val savedTraditions by preferencesManager.devotionalTraditionsFlow.collectAsState(initial = emptySet())
+    val selected = remember(savedTraditions) { savedTraditions.toMutableList().toMutableStateList() }
+    val scope = rememberCoroutineScope()
+
+    // Save whenever selection changes
+    fun toggleAndSave(option: String) {
+        if (selected.contains(option)) selected.remove(option) else selected.add(option)
+        scope.launch { preferencesManager.saveDevotionalTraditions(selected.toSet()) }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AdvancedAuroraBackground()
@@ -52,10 +65,7 @@ fun DevotionalPreferencesScreen(onBack: () -> Unit) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                if (selected.contains(option)) selected.remove(option)
-                                else selected.add(option)
-                            }
+                            .clickable { toggleAndSave(option) }
                             .padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

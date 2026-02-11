@@ -93,7 +93,10 @@ fun AudioListScreen(
                             animationSpec = tween(400, delayMillis = delay, easing = EaseOutCubic)
                         )
                     ) {
-                        PremiumSquareMediaCard(item = item, onClick = onItemClick)
+                        PremiumSquareMediaCard(
+                            item = item, 
+                            onClick = { onItemClick(item) }
+                        )
                     }
                 }
             }
@@ -101,8 +104,3 @@ fun AudioListScreen(
     }
 }
 
-// Use the shared PremiumSquareMediaCard from CalmScreen
-@Composable
-private fun PremiumSquareMediaCard(item: CalmMediaItem, onClick: (CalmMediaItem) -> Unit) {
-    SquareMediaCard(item = item, onClick = onClick)
-}

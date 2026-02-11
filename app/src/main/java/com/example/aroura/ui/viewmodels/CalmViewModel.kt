@@ -10,6 +10,8 @@ import com.example.aroura.data.api.ApiClient
 import com.example.aroura.data.api.AudioItem
 import com.example.aroura.data.local.TokenManager
 import com.example.aroura.data.repository.AudioRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,14 +20,24 @@ import kotlinx.coroutines.launch
 private const val TAG = "CalmViewModel"
 
 /**
- * Calm ViewModel
+ * Calm ViewModel - Optimized with Lazy Loading
  * 
- * Manages state for the Calm screen with real audio content
- * from Freesound, Jamendo, Internet Archive, and LibriVox
+ * PERFORMANCE OPTIMIZATIONS:
+ * - Only loads selected tab's content (lazy loading)
+ * - Caches loaded categories to avoid re-fetching
+ * - Limits items per category for fast rendering
+ * - Debounced search
+ * 
+ * Categories: Nature, Ambient, Meditation, ASMR, Sleep, Focus, Music
+ * Sources: Freesound (sounds), Jamendo (music)
  */
 class CalmViewModel(
     private val repository: AudioRepository
 ) : ViewModel() {
+    
+    companion object {
+        private const val MAX_ITEMS_PER_CATEGORY = 12 // Limit for performance
+    }
     
     // ═══════════════════════════════════════════════════════════════════════════
     // STATE
@@ -40,119 +52,209 @@ class CalmViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
+    private val _selectedTab = MutableStateFlow(CalmTab.NATURE)
+    val selectedTab: StateFlow<CalmTab> = _selectedTab.asStateFlow()
+    
+    // Track which categories are already loaded
+    private val loadedCategories = mutableSetOf<CalmTab>()
+    private var currentLoadJob: Job? = null
+    private var searchJob: Job? = null
+    
+    // Track loading state per tab to prevent duplicate requests
+    private val loadingTabs = mutableSetOf<CalmTab>()
+    
     init {
-        loadAllContent()
+        // Only load initial tab (Nature) - not all categories
+        loadSelectedTabContent()
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // LOAD CONTENT
+    // LAZY LOADING - LOADS ONLY WHEN TAB IS SELECTED
     // ═══════════════════════════════════════════════════════════════════════════
     
     /**
-     * Load all audio content from backend
+     * Load content for selected tab only (lazy loading)
      */
-    fun loadAllContent() {
-        viewModelScope.launch {
+    private fun loadSelectedTabContent() {
+        currentLoadJob?.cancel()
+        currentLoadJob = viewModelScope.launch {
+            // Small debounce to prevent rapid API calls when switching tabs quickly
+            delay(100)
+            
+            val tab = _selectedTab.value
+            
+            // Skip if already loaded or currently loading
+            if (loadedCategories.contains(tab)) {
+                _uiState.value = _uiState.value.copy(isContentLoaded = true)
+                return@launch
+            }
+            
+            // Skip if already loading this tab
+            if (loadingTabs.contains(tab)) {
+                return@launch
+            }
+            
+            loadingTabs.add(tab)
             _isLoading.value = true
             _error.value = null
             
             try {
-                // Load each category in parallel
-                val devotionalResult = repository.getDevotionalContent()
-                val audiobooksResult = repository.getAudiobooks()
+                when (tab) {
+                    CalmTab.NATURE -> loadNature()
+                    CalmTab.AMBIENT -> loadAmbient()
+                    CalmTab.MEDITATION -> loadMeditation()
+                    CalmTab.SLEEP -> loadSleep()
+                    CalmTab.FOCUS -> loadFocus()
+                    CalmTab.ASMR -> loadAsmr()
+                    CalmTab.MUSIC -> loadMusic()
+                }
                 
-                // Update state with results
-                _uiState.value = _uiState.value.copy(
-                    devotionalItems = devotionalResult.getOrDefault(emptyList())
-                        .map { it.toCalmMediaItem() },
-                    audiobookItems = audiobooksResult.getOrDefault(emptyList())
-                        .map { it.toCalmMediaItem() },
-                    isContentLoaded = true
-                )
-                
-                // Load nature sounds and calm music (may take longer due to external APIs)
-                loadNatureAndMusic()
+                loadedCategories.add(tab)
+                _uiState.value = _uiState.value.copy(isContentLoaded = true)
                 
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading content", e)
-                _error.value = e.message ?: "Failed to load content"
+                Log.e(TAG, "Error loading ${tab.name}", e)
+                _error.value = "Failed to load ${tab.displayName}. Tap to retry."
                 
-                // Use fallback content if API fails
-                loadFallbackContent()
+                // Use fallback for Nature tab
+                if (tab == CalmTab.NATURE) {
+                    loadFallbackContent()
+                }
             } finally {
+                loadingTabs.remove(tab)
                 _isLoading.value = false
             }
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INDIVIDUAL CATEGORY LOADERS
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    private suspend fun loadNature() {
+        val result = repository.getNatureSounds()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                natureSounds = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadAmbient() {
+        val result = repository.getAmbientSounds()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                ambientSounds = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadMeditation() {
+        val result = repository.getMeditationSounds()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                meditationSounds = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadSleep() {
+        val result = repository.getSleepSounds()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                sleepSounds = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadFocus() {
+        val result = repository.getFocusMusic()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                focusMusic = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadAsmr() {
+        val result = repository.getASMRSounds()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                asmrSounds = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    private suspend fun loadMusic() {
+        val result = repository.getCalmMusic()
+        result.onSuccess { items ->
+            _uiState.value = _uiState.value.copy(
+                calmMusic = items.take(MAX_ITEMS_PER_CATEGORY).map { it.toCalmMediaItem() }
+            )
+        }.onFailure { throw it }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TAB SELECTION & REFRESH
+    // ═══════════════════════════════════════════════════════════════════════════
+    
     /**
-     * Load nature sounds and calm music (external APIs)
+     * Select a tab and lazy-load its content if not cached
      */
-    private fun loadNatureAndMusic() {
-        viewModelScope.launch {
-            try {
-                val natureResult = repository.getNatureSounds()
-                val musicResult = repository.getCalmMusic()
-                
-                _uiState.value = _uiState.value.copy(
-                    natureSounds = natureResult.getOrDefault(emptyList())
-                        .map { it.toCalmMediaItem() },
-                    calmMusic = musicResult.getOrDefault(emptyList())
-                        .map { it.toCalmMediaItem() }
-                )
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading nature/music", e)
-            }
+    fun selectTab(tab: CalmTab) {
+        if (_selectedTab.value == tab) return
+        
+        _selectedTab.value = tab
+        _error.value = null
+        
+        // Only load if not already cached
+        if (!loadedCategories.contains(tab)) {
+            loadSelectedTabContent()
         }
     }
     
     /**
-     * Load devotional content specifically
+     * Force refresh current tab
      */
-    fun loadDevotional() {
-        viewModelScope.launch {
-            try {
-                val result = repository.getDevotionalContent()
-                result.onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(
-                        devotionalItems = items.map { it.toCalmMediaItem() }
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading devotional", e)
-            }
+    fun refreshCurrentTab() {
+        loadedCategories.remove(_selectedTab.value)
+        loadSelectedTabContent()
+    }
+    
+    /**
+     * Get items for current tab
+     */
+    fun getCurrentTabItems(): List<CalmMediaItemData> {
+        return when (_selectedTab.value) {
+            CalmTab.NATURE -> _uiState.value.natureSounds
+            CalmTab.AMBIENT -> _uiState.value.ambientSounds
+            CalmTab.MEDITATION -> _uiState.value.meditationSounds
+            CalmTab.SLEEP -> _uiState.value.sleepSounds
+            CalmTab.FOCUS -> _uiState.value.focusMusic
+            CalmTab.ASMR -> _uiState.value.asmrSounds
+            CalmTab.MUSIC -> _uiState.value.calmMusic
         }
     }
     
     /**
-     * Load audiobooks specifically
-     */
-    fun loadAudiobooks() {
-        viewModelScope.launch {
-            try {
-                val result = repository.getAudiobooks()
-                result.onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(
-                        audiobookItems = items.map { it.toCalmMediaItem() }
-                    )
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading audiobooks", e)
-            }
-        }
-    }
-    
-    /**
-     * Search for audio content
+     * Search for audio content with debounce
      */
     fun searchAudio(query: String) {
-        viewModelScope.launch {
+        searchJob?.cancel()
+        
+        if (query.length < 2) {
+            clearSearch()
+            return
+        }
+        
+        searchJob = viewModelScope.launch {
+            delay(300) // Debounce
             _isLoading.value = true
             try {
                 val result = repository.searchAudio(query)
                 result.onSuccess { response ->
                     _uiState.value = _uiState.value.copy(
-                        searchResults = response.results.map { it.toCalmMediaItem() },
+                        searchResults = response.results.take(15).map { it.toCalmMediaItem() },
                         isSearchActive = true
                     )
                 }
@@ -180,96 +282,18 @@ class CalmViewModel(
      */
     private fun loadFallbackContent() {
         _uiState.value = _uiState.value.copy(
-            devotionalItems = getFallbackDevotional(),
-            audiobookItems = getFallbackAudiobooks(),
-            relaxationItems = getFallbackRelaxation(),
+            natureSounds = getFallbackNature(),
+            sleepSounds = getFallbackSleep(),
+            meditationSounds = getFallbackMeditation(),
             isContentLoaded = true
         )
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
-    // FALLBACK DATA
+    // FALLBACK DATA (No religious content)
     // ═══════════════════════════════════════════════════════════════════════════
     
-    private fun getFallbackDevotional(): List<CalmMediaItemData> = listOf(
-        CalmMediaItemData(
-            id = "fb_meditation_bells",
-            title = "Meditation Bells",
-            subtitle = "Tibetan Singing Bowls",
-            category = "devotional",
-            startColor = Color(0xFF5C6BC0),
-            endColor = Color(0xFF3949AB),
-            streamingUrl = "https://freesound.org/data/previews/411/411089_5121236-lq.mp3",
-            duration = 180,
-            loopAllowed = true,
-            sourceName = "Freesound"
-        ),
-        CalmMediaItemData(
-            id = "fb_temple_bells",
-            title = "Temple Bells",
-            subtitle = "Sacred Ambience",
-            category = "devotional",
-            startColor = Color(0xFFFFB74D),
-            endColor = Color(0xFFF57C00),
-            streamingUrl = "https://freesound.org/data/previews/352/352661_5121236-lq.mp3",
-            duration = 120,
-            loopAllowed = true,
-            sourceName = "Freesound"
-        ),
-        CalmMediaItemData(
-            id = "fb_wind_chimes",
-            title = "Wind Chimes",
-            subtitle = "Peaceful Relaxation",
-            category = "devotional",
-            startColor = Color(0xFF4DB6AC),
-            endColor = Color(0xFF00897B),
-            streamingUrl = "https://freesound.org/data/previews/467/467090_7166240-lq.mp3",
-            duration = 60,
-            loopAllowed = true,
-            sourceName = "Freesound"
-        )
-    )
-    
-    private fun getFallbackAudiobooks(): List<CalmMediaItemData> = listOf(
-        CalmMediaItemData(
-            id = "fb_relaxing_story",
-            title = "Relaxing Story",
-            subtitle = "Sleep Tales",
-            category = "audiobooks",
-            startColor = Color(0xFFE57373),
-            endColor = Color(0xFFD32F2F),
-            streamingUrl = "https://freesound.org/data/previews/456/456515_9322996-lq.mp3",
-            duration = 300,
-            loopAllowed = false,
-            sourceName = "Freesound"
-        ),
-        CalmMediaItemData(
-            id = "fb_peaceful_narration",
-            title = "Peaceful Journey",
-            subtitle = "Guided Relaxation",
-            category = "audiobooks",
-            startColor = Color(0xFFFFD54F),
-            endColor = Color(0xFFFFA000),
-            streamingUrl = "https://freesound.org/data/previews/562/562359_7166240-lq.mp3",
-            duration = 240,
-            loopAllowed = false,
-            sourceName = "Freesound"
-        ),
-        CalmMediaItemData(
-            id = "fb_calm_voice",
-            title = "Calm Meditation",
-            subtitle = "Voice Guide",
-            category = "audiobooks",
-            startColor = Color(0xFF81C784),
-            endColor = Color(0xFF388E3C),
-            streamingUrl = "https://freesound.org/data/previews/528/528905_11766219-lq.mp3",
-            duration = 180,
-            loopAllowed = false,
-            sourceName = "Freesound"
-        )
-    )
-    
-    private fun getFallbackRelaxation(): List<CalmMediaItemData> = listOf(
+    private fun getFallbackNature(): List<CalmMediaItemData> = listOf(
         CalmMediaItemData(
             id = "fb_rain",
             title = "Rain Sounds",
@@ -278,7 +302,6 @@ class CalmViewModel(
             startColor = Color(0xFF81C784),
             endColor = Color(0xFF2E7D32),
             streamingUrl = "https://freesound.org/data/previews/531/531947_7618603-lq.mp3",
-            streamingUrlBackup = "https://archive.org/download/RainThunder/Rain%20%26%20Thunder.mp3",
             duration = 300,
             loopAllowed = true,
             sourceName = "Freesound"
@@ -288,10 +311,9 @@ class CalmViewModel(
             title = "Ocean Waves",
             subtitle = "Beach Relaxation",
             category = "nature",
-            startColor = Color(0xFF9575CD),
-            endColor = Color(0xFF512DA8),
+            startColor = Color(0xFF64B5F6),
+            endColor = Color(0xFF1976D2),
             streamingUrl = "https://freesound.org/data/previews/610/610706_7037-lq.mp3",
-            streamingUrlBackup = "https://archive.org/download/ocean-waves-sound/Ocean%20Waves.mp3",
             duration = 300,
             loopAllowed = true,
             sourceName = "Freesound"
@@ -304,8 +326,61 @@ class CalmViewModel(
             startColor = Color(0xFF66BB6A),
             endColor = Color(0xFF43A047),
             streamingUrl = "https://freesound.org/data/previews/576/576828_6515806-lq.mp3",
-            streamingUrlBackup = "https://archive.org/download/forest-birds-morning/Forest%20Birds.mp3",
             duration = 300,
+            loopAllowed = true,
+            sourceName = "Freesound"
+        )
+    )
+    
+    private fun getFallbackSleep(): List<CalmMediaItemData> = listOf(
+        CalmMediaItemData(
+            id = "fb_white_noise",
+            title = "White Noise",
+            subtitle = "Sleep Aid",
+            category = "sleep",
+            startColor = Color(0xFF9575CD),
+            endColor = Color(0xFF512DA8),
+            streamingUrl = "https://freesound.org/data/previews/132/132765_2398403-lq.mp3",
+            duration = 600,
+            loopAllowed = true,
+            sourceName = "Freesound"
+        ),
+        CalmMediaItemData(
+            id = "fb_fan",
+            title = "Fan Sound",
+            subtitle = "Background Noise",
+            category = "sleep",
+            startColor = Color(0xFF78909C),
+            endColor = Color(0xFF455A64),
+            streamingUrl = "https://freesound.org/data/previews/342/342884_3248244-lq.mp3",
+            duration = 600,
+            loopAllowed = true,
+            sourceName = "Freesound"
+        )
+    )
+    
+    private fun getFallbackMeditation(): List<CalmMediaItemData> = listOf(
+        CalmMediaItemData(
+            id = "fb_singing_bowl",
+            title = "Singing Bowl",
+            subtitle = "Meditation Aid",
+            category = "meditation",
+            startColor = Color(0xFFFFB74D),
+            endColor = Color(0xFFF57C00),
+            streamingUrl = "https://freesound.org/data/previews/411/411089_5121236-lq.mp3",
+            duration = 180,
+            loopAllowed = true,
+            sourceName = "Freesound"
+        ),
+        CalmMediaItemData(
+            id = "fb_bell",
+            title = "Meditation Bell",
+            subtitle = "Zen Sound",
+            category = "meditation",
+            startColor = Color(0xFF4DB6AC),
+            endColor = Color(0xFF00897B),
+            streamingUrl = "https://freesound.org/data/previews/352/352661_5121236-lq.mp3",
+            duration = 60,
             loopAllowed = true,
             sourceName = "Freesound"
         )
@@ -314,17 +389,38 @@ class CalmViewModel(
     fun clearError() {
         _error.value = null
     }
+    
+    override fun onCleared() {
+        super.onCleared()
+        currentLoadJob?.cancel()
+        searchJob?.cancel()
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // UI STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * Tabs for Calm screen - NO devotional content
+ */
+enum class CalmTab(val displayName: String, val icon: String) {
+    NATURE("Nature", "🌿"),
+    AMBIENT("Ambient", "🌙"),
+    MEDITATION("Meditation", "🧘"),
+    SLEEP("Sleep", "😴"),
+    FOCUS("Focus", "🎯"),
+    ASMR("ASMR", "✨"),
+    MUSIC("Music", "🎵")
+}
+
 data class CalmUiState(
-    val devotionalItems: List<CalmMediaItemData> = emptyList(),
-    val audiobookItems: List<CalmMediaItemData> = emptyList(),
-    val relaxationItems: List<CalmMediaItemData> = emptyList(),
     val natureSounds: List<CalmMediaItemData> = emptyList(),
+    val ambientSounds: List<CalmMediaItemData> = emptyList(),
+    val meditationSounds: List<CalmMediaItemData> = emptyList(),
+    val asmrSounds: List<CalmMediaItemData> = emptyList(),
+    val sleepSounds: List<CalmMediaItemData> = emptyList(),
+    val focusMusic: List<CalmMediaItemData> = emptyList(),
     val calmMusic: List<CalmMediaItemData> = emptyList(),
     val searchResults: List<CalmMediaItemData> = emptyList(),
     val isSearchActive: Boolean = false,
@@ -348,7 +444,8 @@ data class CalmMediaItemData(
     val sleepTimerSupported: Boolean = true,
     val sourceName: String = "",
     val attributionText: String? = null,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    val subCategory: String? = null
 )
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -374,7 +471,8 @@ fun AudioItem.toCalmMediaItem(): CalmMediaItemData {
         sleepTimerSupported = sleepTimerSupported,
         sourceName = sourceName,
         attributionText = attributionText,
-        imageUrl = image
+        imageUrl = image,
+        subCategory = subCategory
     )
 }
 
@@ -383,11 +481,13 @@ fun AudioItem.toCalmMediaItem(): CalmMediaItemData {
  */
 private fun getCategoryColors(category: String): Pair<Color, Color> {
     return when (category) {
-        "devotional" -> Color(0xFF5C6BC0) to Color(0xFF3949AB)
-        "audiobooks" -> Color(0xFFE57373) to Color(0xFFD32F2F)
         "nature" -> Color(0xFF81C784) to Color(0xFF2E7D32)
+        "ambient" -> Color(0xFF90CAF9) to Color(0xFF1565C0)
         "meditation" -> Color(0xFFFFB74D) to Color(0xFFF57C00)
-        "calm_music" -> Color(0xFF9575CD) to Color(0xFF512DA8)
+        "asmr" -> Color(0xFFCE93D8) to Color(0xFF7B1FA2)
+        "sleep" -> Color(0xFF9575CD) to Color(0xFF512DA8)
+        "focus" -> Color(0xFF4DD0E1) to Color(0xFF0097A7)
+        "music" -> Color(0xFFE57373) to Color(0xFFD32F2F)
         else -> Color(0xFF4DB6AC) to Color(0xFF00897B)
     }
 }
@@ -396,6 +496,7 @@ private fun getCategoryColors(category: String): Pair<Color, Color> {
 // VIEW MODEL FACTORY
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// TODO: Replace with Hilt/Koin DI — this manual factory should be removed once a DI framework is adopted.
 class CalmViewModelFactory(
     private val context: Context
 ) : ViewModelProvider.Factory {
@@ -403,7 +504,7 @@ class CalmViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CalmViewModel::class.java)) {
-            val tokenManager = TokenManager(context)
+            val tokenManager = TokenManager.getInstance(context)
             val audioApiService = ApiClient.createAudioApiService(tokenManager)
             val repository = AudioRepository(audioApiService, context)
             

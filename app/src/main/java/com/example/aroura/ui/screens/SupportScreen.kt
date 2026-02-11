@@ -504,11 +504,3 @@ private fun PremiumAddContactCard(onClick: () -> Unit) {
     }
 }
 
-// Legacy compatibility
-@Composable
-fun SupportOptionCard(title: String, subtitle: String, icon: ImageVector, onClick: () -> Unit) = 
-    PremiumSupportOptionCard(title, subtitle, icon, MutedTeal, onClick)
-
-@Composable
-fun CompactSupportCard(text: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) = 
-    PremiumCompactCard(text, icon, MutedTeal, modifier, onClick)

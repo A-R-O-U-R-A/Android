@@ -1,5 +1,7 @@
 package com.example.aroura.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.aroura.ui.components.ArouraBackground
@@ -33,6 +36,7 @@ import com.example.aroura.ui.theme.*
  * - Staggered entrance animations
  * - Premium cards with call action
  * - Interactive feedback
+ * - Tapping a card opens the phone dialer via Intent.ACTION_DIAL
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +127,7 @@ fun HelplineScreen(onBack: () -> Unit) {
 
 @Composable
 private fun PremiumHelplineCard(name: String, number: String) {
+    val context = LocalContext.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
@@ -146,7 +151,12 @@ private fun PremiumHelplineCard(name: String, number: String) {
             .clickable(
                 interactionSource = interactionSource,
                 indication = null
-            ) { /* Call */ }
+            ) {
+                // Open phone dialer with the helpline number
+                val cleanNumber = number.replace(Regex("[^+\\d]"), "")
+                val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanNumber"))
+                context.startActivity(dialIntent)
+            }
     ) {
         Row(
             modifier = Modifier.padding(ArouraSpacing.lg.dp),
