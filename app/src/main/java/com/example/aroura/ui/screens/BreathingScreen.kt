@@ -86,20 +86,22 @@ fun BreathingScreen(
     var isMuted by remember { mutableStateOf(false) }
     var visible by remember { mutableStateOf(false) }
     
-    // Ambient sound tracks (using free streaming URLs)
+    // Ambient sound tracks (using reliable free streaming URLs from Pixabay)
     val ambientTracks = remember {
         listOf(
-            "peaceful_breathing" to ("Peaceful Breathing" to "https://www.soundjay.com/nature/sounds/ocean-wave-2.mp3"),
-            "ocean_waves" to ("Ocean Waves" to "https://www.soundjay.com/nature/sounds/ocean-wave-1.mp3"),
-            "forest_ambience" to ("Forest Ambience" to "https://www.soundjay.com/nature/sounds/forest-1.mp3"),
-            "gentle_rain" to ("Gentle Rain" to "https://www.soundjay.com/nature/sounds/rain-01.mp3"),
-            "tibetan_bowls" to ("Tibetan Bowls" to "https://www.soundjay.com/nature/sounds/wind-howl-1.mp3")
+            "peaceful_breathing" to ("Peaceful Breathing" to "https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8a73467.mp3"),
+            "ocean_waves" to ("Ocean Waves" to "https://cdn.pixabay.com/audio/2022/06/07/audio_b9bd4170e4.mp3"),
+            "forest_ambience" to ("Forest Ambience" to "https://cdn.pixabay.com/audio/2021/09/06/audio_8e1f2fbfc1.mp3"),
+            "gentle_rain" to ("Gentle Rain" to "https://cdn.pixabay.com/audio/2022/03/24/audio_4e1e71f19f.mp3"),
+            "meditation_bells" to ("Meditation Bells" to "https://cdn.pixabay.com/audio/2022/10/30/audio_b7bd30b0c8.mp3")
         )
     }
     
-    var currentTrackIndex by remember { mutableIntStateOf(0) }
-    var currentSongName by remember { mutableStateOf(ambientTracks[0].second.first) }
+    // Use -1 as initial to indicate "not loaded yet"
+    var currentTrackIndex by remember { mutableIntStateOf(-1) }
+    var currentSongName by remember { mutableStateOf("Loading...") }
     var likedSongId by remember { mutableStateOf<String?>(null) }
+    var hasLoadedLikedSong by remember { mutableStateOf(false) }
     
     // Load liked song on startup (if any)
     LaunchedEffect(Unit) {
@@ -116,11 +118,35 @@ fun BreathingScreen(
                         currentTrackIndex = trackIndex
                         currentSongName = ambientTracks[trackIndex].second.first
                         isFavorite = true
+                        hasLoadedLikedSong = true
+                    } else {
+                        // Liked song not found in our tracks, pick random
+                        val randomIndex = (0 until ambientTracks.size).random()
+                        currentTrackIndex = randomIndex
+                        currentSongName = ambientTracks[randomIndex].second.first
+                        hasLoadedLikedSong = true
                     }
+                } else {
+                    // No liked songs, start with random track
+                    val randomIndex = (0 until ambientTracks.size).random()
+                    currentTrackIndex = randomIndex
+                    currentSongName = ambientTracks[randomIndex].second.first
+                    hasLoadedLikedSong = true
                 }
+            } else {
+                // API failed, start with random track
+                val randomIndex = (0 until ambientTracks.size).random()
+                currentTrackIndex = randomIndex
+                currentSongName = ambientTracks[randomIndex].second.first
+                hasLoadedLikedSong = true
             }
         } catch (e: Exception) {
             android.util.Log.e("BreathingScreen", "Failed to load liked songs", e)
+            // On error, start with random track
+            val randomIndex = (0 until ambientTracks.size).random()
+            currentTrackIndex = randomIndex
+            currentSongName = ambientTracks[randomIndex].second.first
+            hasLoadedLikedSong = true
         }
     }
     
@@ -128,21 +154,31 @@ fun BreathingScreen(
     val mediaPlayer = remember { MediaPlayer() }
     var mediaPlayerReady by remember { mutableStateOf(false) }
     
-    // Initialize and manage MediaPlayer
+    // Initialize and manage MediaPlayer - only when track index is valid
     LaunchedEffect(currentTrackIndex) {
+        if (currentTrackIndex < 0) return@LaunchedEffect // Wait for valid track
+        
         try {
             // Check if current track is the liked one
             isFavorite = ambientTracks[currentTrackIndex].first == likedSongId
+            currentSongName = ambientTracks[currentTrackIndex].second.first
             
+            mediaPlayerReady = false
             mediaPlayer.reset()
             mediaPlayer.setDataSource(ambientTracks[currentTrackIndex].second.second)
             mediaPlayer.isLooping = true
             mediaPlayer.prepareAsync()
             mediaPlayer.setOnPreparedListener {
                 mediaPlayerReady = true
+                // Auto-start playing when ready if not muted
                 if (isPlaying && !isMuted) {
                     it.start()
                 }
+            }
+            mediaPlayer.setOnErrorListener { _, what, extra ->
+                android.util.Log.e("BreathingScreen", "MediaPlayer error: what=$what, extra=$extra")
+                // Try next track on error
+                false
             }
         } catch (e: Exception) {
             // Fallback - audio not available, continue with visual breathing only

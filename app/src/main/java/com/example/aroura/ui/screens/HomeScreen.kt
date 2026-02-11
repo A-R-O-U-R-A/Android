@@ -47,6 +47,7 @@ import com.example.aroura.ui.viewmodels.ProfileViewModel
 import com.example.aroura.ui.viewmodels.HomeViewModel
 import com.example.aroura.ui.viewmodels.ReflectViewModel
 import com.example.aroura.ui.viewmodels.getCurrentDayIndex
+import com.example.aroura.ui.viewmodels.getDateForDayIndex
 import com.example.aroura.data.local.PreferencesManager
 
 /**
@@ -297,7 +298,7 @@ fun HomeScreen(
                                             ReflectOption.MoodCheckIn -> "mood"
                                             ReflectOption.Journal -> "journal"
                                             ReflectOption.GuidedReflection -> "guided"
-                                            ReflectOption.EmotionTracker -> "tracker"
+                                            ReflectOption.MoodHistory -> "mood_history_standalone"
                                             ReflectOption.Assessments -> "library"
                                             ReflectOption.AnxietyJournal -> "anxiety_history"
                                         }
@@ -340,7 +341,10 @@ fun HomeScreen(
                                 )
                                 "voice_journal" -> VoiceJournalScreen(onBack = { reflectNavigationState = "journal" })
                                 "guided" -> GuidedReflectionScreen(onBack = { reflectNavigationState = "menu" })
-                                "tracker" -> EmotionTrackerScreen(onBack = { reflectNavigationState = "menu" })
+                                "mood_history_standalone" -> MoodHistoryScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    viewModel = reflectViewModel
+                                )
                             }
                         }
                         4 -> {
@@ -638,6 +642,11 @@ fun HomeContent(
         // SECTION 5: YOUR ROUTINE (Database Connected)
         // ═══════════════════════════════════════════════════════════════════════
         
+        // Get routine completions from collected state for reactive updates
+        val routineCompletions = uiState?.routineCompletions ?: emptyMap()
+        val dateForSelectedDay = getDateForDayIndex(selectedDay)
+        val completedTaskIds = routineCompletions[dateForSelectedDay] ?: emptyList()
+        
         YourRoutineSection(
             selectedDay = selectedDay.coerceIn(0, 6),
             onDaySelected = { day ->
@@ -649,8 +658,8 @@ fun HomeContent(
                 }
             },
             tasks = staticRoutineTasks.map { task ->
-                // Check if task is completed for the selected day
-                val isCompleted = homeViewModel?.isTaskCompletedForDay(task.id, selectedDay) == true
+                // Check if task is completed for the selected day using reactive state
+                val isCompleted = completedTaskIds.contains(task.id)
                 task.copy(isCompleted = isCompleted)
             },
             currentDayIndex = getCurrentDayIndex(),

@@ -44,7 +44,7 @@ enum class ReflectOption {
     MoodCheckIn,
     Journal,
     GuidedReflection,
-    EmotionTracker,
+    MoodHistory,
     Assessments,
     AnxietyJournal
 }
@@ -97,11 +97,11 @@ fun ReflectMenuScreen(
             ReflectOption.GuidedReflection
         ),
         ReflectOptionData(
-            "Track Your Emotions",
-            "Notice patterns and gain insight",
+            "Track Your Mood",
+            "View your mood history and patterns",
             Icons.Default.DateRange,
             MutedTeal,
-            ReflectOption.EmotionTracker
+            ReflectOption.MoodHistory
         ),
         ReflectOptionData(
             "Anxiety Journal",
