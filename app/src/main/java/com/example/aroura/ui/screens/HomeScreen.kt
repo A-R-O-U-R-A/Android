@@ -1,5 +1,6 @@
 package com.example.aroura.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -42,6 +44,9 @@ import com.example.aroura.data.ReflectTestId
 import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
 import com.example.aroura.ui.screens.reflect.TestFlowScreen
 import com.example.aroura.ui.viewmodels.ProfileViewModel
+import com.example.aroura.ui.viewmodels.HomeViewModel
+import com.example.aroura.ui.viewmodels.ReflectViewModel
+import com.example.aroura.ui.viewmodels.getCurrentDayIndex
 import com.example.aroura.data.local.PreferencesManager
 
 /**
@@ -57,10 +62,14 @@ import com.example.aroura.data.local.PreferencesManager
 @Composable
 fun HomeScreen(
     profileViewModel: ProfileViewModel,
+    homeViewModel: HomeViewModel? = null,
+    reflectViewModel: ReflectViewModel? = null,
     preferencesManager: PreferencesManager,
     onNavigateToChat: () -> Unit,
     onNavigateToCalmAnxiety: () -> Unit = {},
-    onNavigateToMoodJournal: () -> Unit = {}
+    onNavigateToMoodJournal: () -> Unit = {},
+    onNavigateToQuiz: (quizId: String) -> Unit = {},
+    onNavigateToSelfDiscoveryQuest: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     
@@ -135,7 +144,13 @@ fun HomeScreen(
             }
         } else if (showBreathingScreen) {
             Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
-                BreathingScreen(onClose = { showBreathingScreen = false })
+                BreathingScreen(
+                    onClose = { showBreathingScreen = false },
+                    onComplete = {
+                        // Mark breathing routine task as complete
+                        homeViewModel?.completeRoutineTask("breathing", "Mindfulness", "5-Minute Breathing")
+                    }
+                )
             }
         } else if (showGroundingScreen) {
             Box(modifier = Modifier.fillMaxSize().zIndex(9f)) {
@@ -204,6 +219,7 @@ fun HomeScreen(
                         0 -> HomeContent(
                             userName = userProfile?.displayName ?: userProfile?.firstName ?: "Friend",
                             profilePictureUrl = userProfile?.profilePicture,
+                            homeViewModel = homeViewModel,
                             onNavigateToChat = navigateToChatTab, 
                             onNavigateToCalm = navigateToCalmTab,
                             onNavigateToSupport = navigateToSupportTab,
@@ -212,7 +228,17 @@ fun HomeScreen(
                             onOpenPanic = { showPanicScreen = true },
                             onProfileClick = openProfile,
                             onNavigateToCalmAnxiety = onNavigateToCalmAnxiety,
-                            onNavigateToMoodJournal = onNavigateToMoodJournal
+                            onNavigateToMoodJournal = onNavigateToMoodJournal,
+                            onNavigateToReflect = { 
+                                selectedTab = 3
+                                reflectNavigationState = "menu"
+                            },
+                            onNavigateToTests = {
+                                selectedTab = 3
+                                reflectNavigationState = "library"
+                            },
+                            onNavigateToQuiz = onNavigateToQuiz,
+                            onNavigateToSelfDiscoveryQuest = onNavigateToSelfDiscoveryQuest
                         ) 
                         1 -> {
                             if (chatScreenState == "selection") {
@@ -273,6 +299,7 @@ fun HomeScreen(
                                             ReflectOption.GuidedReflection -> "guided"
                                             ReflectOption.EmotionTracker -> "tracker"
                                             ReflectOption.Assessments -> "library"
+                                            ReflectOption.AnxietyJournal -> "anxiety_history"
                                         }
                                     },
                                     onProfileClick = openProfile,
@@ -295,7 +322,18 @@ fun HomeScreen(
                                         }
                                     )
                                 } ?: run { reflectNavigationState = "library" }
-                                "mood" -> MoodCheckInScreen(onBack = { reflectNavigationState = "menu" })
+                                "mood" -> MoodCheckInScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    onViewHistory = { reflectNavigationState = "mood_history" }
+                                )
+                                "mood_history" -> MoodHistoryScreen(
+                                    onBack = { reflectNavigationState = "mood" },
+                                    viewModel = reflectViewModel
+                                )
+                                "anxiety_history" -> AnxietyHistoryScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    viewModel = reflectViewModel
+                                )
                                 "journal" -> JournalScreen(
                                     onBack = { reflectNavigationState = "menu" },
                                     onNavigateToVoice = { reflectNavigationState = "voice_journal" }
@@ -335,31 +373,30 @@ fun HomeScreen(
 
 // Static data moved outside composable to prevent recreation on recomposition
 private val staticRoutineTasks = listOf(
-    RoutineTask("1", "Journaling", "Track Your Mood", false, CalmingLavender),
-    RoutineTask("2", "Journaling", "Calm Your Anxiety", false, SoftBlue),
-    RoutineTask("3", "Mindfulness", "5-Minute Breathing", true, MutedTeal)
+    RoutineTask("track_mood", "Journaling", "Track Your Mood", false, CalmingLavender),
+    RoutineTask("calm_anxiety", "Journaling", "Calm Your Anxiety", false, SoftBlue),
+    RoutineTask("breathing", "Mindfulness", "5-Minute Breathing", false, MutedTeal)
 )
 
 private val staticTestPreviews = listOf(
-    TestPreview("1", "Personality", "🧬", CalmingLavender, false),
-    TestPreview("2", "Childhood", "👶", CalmingPeach, false),
-    TestPreview("3", "Love Language", "❤️", GentleError.copy(alpha = 0.8f), false),
-    TestPreview("4", "Attachment", "🔗", MutedTeal, false),
-    TestPreview("5", "Emotional IQ", "💜", SoftBlue, false)
+    TestPreview("PERSONALITY_TYPE", "Personality", "🧬", CalmingLavender, false),
+    TestPreview("CHILDHOOD_EXPERIENCES", "Childhood", "👶", CalmingPeach, false),
+    TestPreview("LOVE_LANGUAGE", "Love Language", "❤️", GentleError.copy(alpha = 0.8f), false),
+    TestPreview("ATTACHMENT_STYLE", "Attachment", "🔗", MutedTeal, false),
+    TestPreview("EMOTIONAL_INTELLIGENCE", "Emotional IQ", "💜", SoftBlue, false)
 )
 
 private val staticQuizzes = listOf(
-    QuizPreview("1", "What's Your Superpower?", "✨", CalmingPeach),
-    QuizPreview("2", "Self-Care Style", "🌿", CalmingGreen),
-    QuizPreview("3", "Your Inner Animal", "🦋", CalmingLavender)
+    QuizPreview("superpower", "What's Your Superpower?", "✨", CalmingPeach),
+    QuizPreview("selfcare", "Self-Care Style", "🌿", CalmingGreen),
+    QuizPreview("inner_animal", "Your Inner Animal", "🦋", CalmingLavender)
 )
-
-private const val dailyAffirmation = "You are allowed to be exactly who you are."
 
 @Composable
 fun HomeContent(
     userName: String = "Friend",
     profilePictureUrl: String? = null,
+    homeViewModel: HomeViewModel? = null,
     onNavigateToChat: () -> Unit, 
     onNavigateToCalm: () -> Unit,
     onNavigateToSupport: () -> Unit,
@@ -368,17 +405,94 @@ fun HomeContent(
     onOpenPanic: () -> Unit,
     onProfileClick: () -> Unit,
     onNavigateToCalmAnxiety: () -> Unit = {},
-    onNavigateToMoodJournal: () -> Unit = {}
+    onNavigateToMoodJournal: () -> Unit = {},
+    onNavigateToReflect: () -> Unit = {},
+    onNavigateToTests: () -> Unit = {},
+    onNavigateToQuiz: (quizId: String) -> Unit = {},
+    onNavigateToSelfDiscoveryQuest: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    
+    // Collect ViewModel state
+    val uiState = homeViewModel?.uiState?.collectAsState()?.value
+    
     // State for all sections - calculate initial day once
-    val initialDay = remember { 
-        (java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK) - 2).coerceIn(0, 6) 
+    val initialDay = remember { getCurrentDayIndex() }
+    var selectedMood by remember { mutableIntStateOf(uiState?.selectedMood ?: -1) }
+    var selectedDay by remember { mutableIntStateOf(uiState?.selectedDay ?: initialDay) }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var moodNote by remember { mutableStateOf("") }
+    
+    // Update local state when ViewModel state changes
+    LaunchedEffect(uiState?.selectedMood) {
+        uiState?.selectedMood?.let { selectedMood = it }
     }
-    var selectedMood by remember { mutableIntStateOf(-1) }
-    var selectedDay by remember { mutableIntStateOf(initialDay) }
     
     // Use stable scroll state
     val scrollState = rememberScrollState()
+    
+    // Mood save success snackbar
+    if (uiState?.showMoodSaveSuccess == true) {
+        LaunchedEffect(Unit) {
+            kotlinx.coroutines.delay(2000)
+            homeViewModel?.dismissMoodSaveSuccess()
+        }
+    }
+    
+    // Save Mood Dialog
+    if (showSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            containerColor = DeepSurface,
+            title = {
+                Text(
+                    "Save Your Mood",
+                    color = OffWhite,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        "Add a note about how you're feeling (optional)",
+                        color = TextDarkSecondary,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = moodNote,
+                        onValueChange = { moodNote = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("What's on your mind?", color = TextDarkTertiary) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = OffWhite,
+                            unfocusedTextColor = OffWhite,
+                            focusedBorderColor = MutedTeal,
+                            unfocusedBorderColor = TextDarkTertiary
+                        ),
+                        maxLines = 3
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        homeViewModel?.saveMood(moodNote)
+                        showSaveDialog = false
+                        moodNote = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MutedTeal)
+                ) {
+                    Text("Save", color = OffWhite)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveDialog = false }) {
+                    Text("Cancel", color = TextDarkSecondary)
+                }
+            }
+        )
+    }
     
     Column(
         modifier = Modifier
@@ -401,10 +515,94 @@ fun HomeContent(
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
-        EmotionalCheckInSection(
-            selectedMood = selectedMood,
-            onMoodSelected = { selectedMood = it }
-        )
+        // Emotional Check-In with Save Button
+        Column {
+            EmotionalCheckInSection(
+                selectedMood = selectedMood,
+                onMoodSelected = { mood ->
+                    selectedMood = mood
+                    homeViewModel?.selectMood(mood)
+                }
+            )
+            
+            // Show save button when mood is selected and not yet saved
+            AnimatedVisibility(
+                visible = selectedMood >= 0 && uiState?.moodSaved != true,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = { showSaveDialog = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MutedTeal.copy(alpha = 0.2f)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = uiState?.moodSaving != true
+                    ) {
+                        if (uiState?.moodSaving == true) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MutedTeal,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MutedTeal,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (uiState?.moodSaving == true) "Saving..." else "Save Mood",
+                            color = MutedTeal,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            
+            // Show saved confirmation
+            AnimatedVisibility(
+                visible = uiState?.moodSaved == true,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        tint = CalmingGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "Mood saved! View in Reflect",
+                        color = CalmingGreen,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    TextButton(
+                        onClick = onNavigateToReflect,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text("View", color = MutedTeal, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
@@ -425,44 +623,51 @@ fun HomeContent(
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 4: DAILY AFFIRMATION
+        // SECTION 4: DAILY AFFIRMATION (AI-Generated)
         // ═══════════════════════════════════════════════════════════════════════
         
         DailyAffirmationCard(
-            affirmation = dailyAffirmation,
-            onShare = { /* Share functionality */ }
+            affirmation = uiState?.dailyAffirmation ?: "You are allowed to be exactly who you are.",
+            isLoading = uiState?.affirmationLoading == true,
+            onShare = { homeViewModel?.shareAffirmation(context) }
         )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 5: SPONSORED / OPPORTUNITIES
-        // ═══════════════════════════════════════════════════════════════════════
-        
-        SponsoredSection(
-            title = "BetterHelp Therapy",
-            description = "Professional counseling, on your schedule",
-            ctaText = "Learn More",
-            onClick = { }
-        )
-        
-        Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
-        
-        // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 6: YOUR ROUTINE (NO PETAL GAME)
+        // SECTION 5: YOUR ROUTINE (Database Connected)
         // ═══════════════════════════════════════════════════════════════════════
         
         YourRoutineSection(
             selectedDay = selectedDay.coerceIn(0, 6),
-            onDaySelected = { selectedDay = it },
-            tasks = staticRoutineTasks,
+            onDaySelected = { day ->
+                // Only allow selecting today or past days
+                val today = getCurrentDayIndex()
+                if (day <= today) {
+                    selectedDay = day
+                    homeViewModel?.selectDay(day)
+                }
+            },
+            tasks = staticRoutineTasks.map { task ->
+                // Check if task is completed for the selected day
+                val isCompleted = homeViewModel?.isTaskCompletedForDay(task.id, selectedDay) == true
+                task.copy(isCompleted = isCompleted)
+            },
+            currentDayIndex = getCurrentDayIndex(),
             onTaskClick = { task ->
-                // Navigate to appropriate screen based on task
-                when (task.title) {
-                    "Track Your Mood" -> onNavigateToMoodJournal()
-                    "Calm Your Anxiety" -> onNavigateToCalmAnxiety()
-                    "5-Minute Breathing" -> onOpenBreathing()
-                    else -> { /* Other tasks */ }
+                when (task.id) {
+                    "track_mood" -> {
+                        onNavigateToMoodJournal()
+                        // Routine completion is handled in MainActivity when flow finishes
+                    }
+                    "calm_anxiety" -> {
+                        onNavigateToCalmAnxiety()
+                        // Routine completion is handled in MainActivity when flow finishes
+                    }
+                    "breathing" -> {
+                        onOpenBreathing()
+                        // Routine completion is handled in BreathingScreen after 1 cycle
+                    }
                 }
             }
         )
@@ -470,38 +675,49 @@ fun HomeContent(
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 7: SELF-DISCOVERY QUEST
+        // SECTION 6: SELF-DISCOVERY QUEST
         // ═══════════════════════════════════════════════════════════════════════
         
         SelfDiscoveryQuestCard(
-            progress = 0,
-            total = 3,
-            onClick = { /* Navigate to tests */ }
+            progress = uiState?.questProgress?.completedCount ?: 0,
+            total = uiState?.questProgress?.totalRequired ?: 3,
+            badgeEarned = uiState?.questProgress?.badgeEarned == true,
+            onClick = onNavigateToSelfDiscoveryQuest
         )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 8: TEST RESULTS OVERVIEW
+        // SECTION 7: TEST RESULTS OVERVIEW
         // ═══════════════════════════════════════════════════════════════════════
         
         TestResultsSection(
-            completedCount = 0,
+            completedCount = uiState?.completedTestsCount ?: 0,
             totalTests = 37,
-            tests = staticTestPreviews,
-            onTestClick = { /* Navigate to test */ },
-            onViewAll = { /* Navigate to all tests */ }
+            tests = staticTestPreviews.map { preview ->
+                // Check if this test is completed
+                val isCompleted = uiState?.testResultsSummary?.any { it.testId == preview.id } == true
+                preview.copy(isCompleted = isCompleted)
+            },
+            onTestClick = { test ->
+                // Navigate to test results if completed, otherwise start test
+                onNavigateToTests()
+            },
+            onViewAll = onNavigateToTests
         )
         
         Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
         
         // ═══════════════════════════════════════════════════════════════════════
-        // SECTION 9: UPLIFTING QUIZZES
+        // SECTION 8: UPLIFTING QUIZZES
         // ═══════════════════════════════════════════════════════════════════════
         
         UpliftingQuizzesSection(
             quizzes = staticQuizzes,
-            onQuizClick = { /* Navigate to quiz */ }
+            onQuizClick = { quiz ->
+                // Navigate to quiz flow with quiz ID
+                onNavigateToQuiz(quiz.id)
+            }
         )
         
         // Bottom padding for navigation bar

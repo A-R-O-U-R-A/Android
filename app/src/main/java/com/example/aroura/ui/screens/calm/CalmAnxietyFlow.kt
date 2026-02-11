@@ -14,6 +14,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -32,15 +34,24 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aroura.data.api.ApiClient
+import com.example.aroura.data.api.CalmAnxietyReflection
+import com.example.aroura.data.api.SaveCalmAnxietyRequest
+import com.example.aroura.data.local.TokenManager
 import com.example.aroura.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Calm Anxiety Flow - Premium Guided Experience
@@ -92,11 +103,21 @@ data class ReflectionQuestion(
 fun CalmAnxietyFlowScreen(
     onClose: () -> Unit,
     onNavigateToBreathing: () -> Unit = {},
-    onNavigateToChat: () -> Unit = {}
+    onNavigateToChat: () -> Unit = {},
+    onFlowComplete: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    // API access for saving entry
+    val tokenManager = remember { TokenManager.getInstance(context) }
+    val reflectApi = remember { ApiClient.createReflectApiService(tokenManager) }
+    
     // Flow state
     var currentStep by remember { mutableStateOf<CalmFlowStep>(CalmFlowStep.Entry) }
-    var answers by remember { mutableStateOf(mutableMapOf<Int, String>()) }
+    var answers by remember { mutableStateOf(mapOf<Int, String>()) }
+    var startTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var hasSavedEntry by remember { mutableStateOf(false) }
     
     // Reflection questions - gentle, non-judgmental
     val questions = remember {
@@ -137,6 +158,39 @@ fun CalmAnxietyFlowScreen(
                 emojiHints = listOf("🌿", "☀️", "💧")
             )
         )
+    }
+    
+    // Function to save entry to backend
+    val saveEntry: () -> Unit = {
+        if (!hasSavedEntry && answers.isNotEmpty()) {
+            hasSavedEntry = true
+            val durationSeconds = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+            
+            scope.launch {
+                try {
+                    val reflections = answers.map { (questionId, answer) ->
+                        val question = questions.find { it.id == questionId }
+                        CalmAnxietyReflection(
+                            questionId = questionId,
+                            prompt = question?.prompt ?: "",
+                            answer = answer
+                        )
+                    }
+                    
+                    val request = SaveCalmAnxietyRequest(
+                        reflections = reflections,
+                        primaryTrigger = answers[0]?.take(100) ?: "",
+                        completedFully = true,
+                        durationSeconds = durationSeconds
+                    )
+                    
+                    reflectApi.saveCalmAnxietyEntry(request)
+                    android.util.Log.d("CalmAnxiety", "Entry saved successfully")
+                } catch (e: Exception) {
+                    android.util.Log.e("CalmAnxiety", "Failed to save entry", e)
+                }
+            }
+        }
     }
     
     // Flow sequence with grounding pages
@@ -200,7 +254,9 @@ fun CalmAnxietyFlowScreen(
                         ReflectionScreen(
                             question = question,
                             currentAnswer = answers[question.id] ?: "",
-                            onAnswerChanged = { answers[question.id] = it },
+                            onAnswerChanged = { newAnswer -> 
+                                answers = answers + (question.id to newAnswer)
+                            },
                             pageNumber = currentIndex,
                             totalPages = totalSteps - 3, // Exclude entry, transition, summary, next
                             onBack = goBack,
@@ -233,9 +289,21 @@ fun CalmAnxietyFlowScreen(
                 
                 is CalmFlowStep.NextSteps -> {
                     NextStepsScreen(
-                        onBreathing = onNavigateToBreathing,
-                        onChat = onNavigateToChat,
-                        onHome = onClose
+                        onBreathing = {
+                            saveEntry()
+                            onFlowComplete()
+                            onNavigateToBreathing()
+                        },
+                        onChat = {
+                            saveEntry()
+                            onFlowComplete()
+                            onNavigateToChat()
+                        },
+                        onHome = {
+                            saveEntry()
+                            onFlowComplete()
+                            onClose()
+                        }
                     )
                 }
             }
@@ -369,6 +437,13 @@ private fun ReflectionScreen(
         visible = false
         delay(50)
         visible = true
+        // Request focus after animation to show keyboard
+        delay(700) // Wait for animation to complete
+        try {
+            focusRequester.requestFocus()
+        } catch (e: Exception) {
+            // Ignore if focus request fails
+        }
     }
     
     Column(
@@ -1263,6 +1338,11 @@ private fun CalmTextInput(
             lineHeight = 26.sp
         ),
         cursorBrush = SolidColor(MutedTeal),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Default,
+            capitalization = KeyboardCapitalization.Sentences
+        ),
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(DeepSurface.copy(alpha = 0.4f))

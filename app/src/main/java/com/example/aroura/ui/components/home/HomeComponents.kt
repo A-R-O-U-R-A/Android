@@ -590,6 +590,7 @@ fun FindSpecialistCard(
 @Composable
 fun DailyAffirmationCard(
     affirmation: String,
+    isLoading: Boolean = false,
     onShare: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -673,14 +674,25 @@ fun DailyAffirmationCard(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                Text(
-                    text = "\"$affirmation\"",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = OffWhite,
-                    fontWeight = FontWeight.Light,
-                    fontStyle = FontStyle.Italic,
-                    lineHeight = 30.sp
-                )
+                if (isLoading) {
+                    // Shimmer loading placeholder
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CalmingLavender.copy(alpha = 0.1f))
+                    )
+                } else {
+                    Text(
+                        text = "\"$affirmation\"",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = OffWhite,
+                        fontWeight = FontWeight.Light,
+                        fontStyle = FontStyle.Italic,
+                        lineHeight = 30.sp
+                    )
+                }
             }
         }
     }
@@ -763,6 +775,7 @@ fun YourRoutineSection(
     onDaySelected: (Int) -> Unit,
     tasks: List<RoutineTask>,
     onTaskClick: (RoutineTask) -> Unit,
+    currentDayIndex: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -797,10 +810,19 @@ fun YourRoutineSection(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             days.forEachIndexed { index, day ->
+                val isFuture = index > currentDayIndex
+                val isToday = index == currentDayIndex
+                
                 DayChip(
                     day = day,
                     isSelected = selectedDay == index,
-                    onClick = { onDaySelected(index) }
+                    isDisabled = isFuture,
+                    isToday = isToday,
+                    onClick = { 
+                        if (!isFuture) {
+                            onDaySelected(index) 
+                        }
+                    }
                 )
             }
         }
@@ -822,34 +844,63 @@ fun YourRoutineSection(
 private fun DayChip(
     day: String,
     isSelected: Boolean,
+    isDisabled: Boolean = false,
+    isToday: Boolean = false,
     onClick: () -> Unit
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) MutedTeal.copy(alpha = 0.2f) else Color.Transparent,
+        targetValue = when {
+            isSelected -> MutedTeal.copy(alpha = 0.2f)
+            isDisabled -> Color.Transparent
+            else -> Color.Transparent
+        },
         animationSpec = tween(200),
         label = "dayBgColor"
     )
     
     val textColor by animateColorAsState(
-        targetValue = if (isSelected) MutedTeal else TextDarkSecondary,
+        targetValue = when {
+            isDisabled -> TextDarkTertiary.copy(alpha = 0.4f)
+            isSelected -> MutedTeal
+            isToday -> CalmingPeach
+            else -> TextDarkSecondary
+        },
         animationSpec = tween(200),
         label = "dayTextColor"
     )
     
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        contentAlignment = Alignment.Center
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = day,
-            style = MaterialTheme.typography.labelMedium,
-            color = textColor,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-        )
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(backgroundColor)
+                .then(
+                    if (!isDisabled) Modifier.clickable(onClick = onClick)
+                    else Modifier
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = day,
+                style = MaterialTheme.typography.labelMedium,
+                color = textColor,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+            )
+        }
+        
+        // Today indicator dot
+        if (isToday) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(CalmingPeach)
+            )
+        }
     }
 }
 
@@ -959,6 +1010,7 @@ data class RoutineTask(
 fun SelfDiscoveryQuestCard(
     progress: Int,
     total: Int,
+    badgeEarned: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1047,15 +1099,15 @@ fun SelfDiscoveryQuestCard(
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Self-Discovery Quest",
+                        text = if (badgeEarned) "Quest Completed! 🏆" else "Self-Discovery Quest",
                         style = MaterialTheme.typography.titleSmall,
-                        color = OffWhite,
+                        color = if (badgeEarned) CalmingGreen else OffWhite,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Take 3 tests to unlock a reward",
+                        text = if (badgeEarned) "You've earned the Explorer Badge!" else "Take 3 tests to unlock a reward",
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextDarkSecondary
+                        color = if (badgeEarned) CalmingGreen.copy(alpha = 0.8f) else TextDarkSecondary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -1068,7 +1120,7 @@ fun SelfDiscoveryQuestCard(
                 
                 TextButton(onClick = onClick) {
                     Text(
-                        "Start",
+                        if (badgeEarned) "View" else "Start",
                         color = CalmingPeach,
                         fontWeight = FontWeight.SemiBold
                     )

@@ -27,11 +27,17 @@ import com.example.aroura.ui.screens.SplashScreen
 import com.example.aroura.ui.screens.WelcomeScreen
 import com.example.aroura.ui.screens.calm.CalmAnxietyFlowScreen
 import com.example.aroura.ui.screens.mood.MoodJournalFlowScreen
+import com.example.aroura.ui.screens.QuizFlowScreen
+import com.example.aroura.ui.screens.quest.SelfDiscoveryQuestScreen
 import com.example.aroura.ui.theme.ArouraTheme
 import com.example.aroura.ui.viewmodels.AuthViewModel
 import com.example.aroura.ui.viewmodels.AuthViewModelFactory
+import com.example.aroura.ui.viewmodels.HomeViewModel
+import com.example.aroura.ui.viewmodels.HomeViewModelFactory
 import com.example.aroura.ui.viewmodels.ProfileViewModel
 import com.example.aroura.ui.viewmodels.ProfileViewModelFactory
+import com.example.aroura.ui.viewmodels.ReflectViewModel
+import com.example.aroura.ui.viewmodels.ReflectViewModelFactory
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 
@@ -87,12 +93,23 @@ class MainActivity : ComponentActivity() {
                         factory = ProfileViewModelFactory(application, localUserRepository)
                     )
                     
+                    // Create HomeViewModel with factory
+                    val homeViewModel: HomeViewModel = viewModel(
+                        factory = HomeViewModelFactory(application)
+                    )
+                    
+                    // Create ReflectViewModel with factory
+                    val reflectViewModel: ReflectViewModel = viewModel(
+                        factory = ReflectViewModelFactory(application)
+                    )
+                    
                     // Collect onboarding and login state
                     val hasCompletedOnboarding by localTokenManager.hasCompletedOnboardingFlow.collectAsState(initial = false)
                     val isLoggedIn by localTokenManager.isLoggedInFlow.collectAsState(initial = false)
                     
                     // Determine initial screen based on onboarding and login status
                     var currentScreen by remember { mutableStateOf("loading") }
+                    var currentQuizId by remember { mutableStateOf("") }
                     
                     // Update screen based on auth state
                     LaunchedEffect(hasCompletedOnboarding, isLoggedIn) {
@@ -141,6 +158,8 @@ class MainActivity : ComponentActivity() {
                             )
                             "home" -> HomeScreen(
                                 profileViewModel = profileViewModel,
+                                homeViewModel = homeViewModel,
+                                reflectViewModel = reflectViewModel,
                                 preferencesManager = localPreferencesManager,
                                 onNavigateToChat = { 
                                     // Logout - navigate back to login (not welcome)
@@ -152,22 +171,55 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToMoodJournal = {
                                     currentScreen = "mood_journal"
+                                },
+                                onNavigateToQuiz = { quizId ->
+                                    currentQuizId = quizId
+                                    currentScreen = "quiz_flow"
+                                },
+                                onNavigateToSelfDiscoveryQuest = {
+                                    currentScreen = "self_discovery_quest"
                                 }
                             )
                             "calm_anxiety" -> CalmAnxietyFlowScreen(
                                 onClose = { currentScreen = "home" },
                                 onNavigateToBreathing = { 
+                                    currentScreen = "home"
                                     // TODO: Navigate to breathing exercise
-                                    currentScreen = "home" 
                                 },
                                 onNavigateToChat = { 
+                                    currentScreen = "home"
                                     // TODO: Navigate to chat
-                                    currentScreen = "home" 
+                                },
+                                onFlowComplete = {
+                                    // Mark routine task as complete when anxiety flow is finished
+                                    homeViewModel.completeRoutineTask("calm_anxiety", "Journaling", "Calm Your Anxiety")
                                 }
                             )
                             "mood_journal" -> MoodJournalFlowScreen(
                                 onClose = { currentScreen = "home" },
-                                onSaveComplete = { currentScreen = "home" }
+                                onSaveComplete = { 
+                                    // Mark routine task as complete when mood is saved
+                                    homeViewModel.completeRoutineTask("track_mood", "Journaling", "Track Your Mood")
+                                    currentScreen = "home" 
+                                }
+                            )
+                            "quiz_flow" -> QuizFlowScreen(
+                                quizId = currentQuizId,
+                                onClose = { currentScreen = "home" },
+                                onSaveResult = { quizId, quizTitle, resultMessage, score ->
+                                    // TODO: Save quiz result to database via ViewModel
+                                    currentScreen = "home"
+                                }
+                            )
+                            "self_discovery_quest" -> SelfDiscoveryQuestScreen(
+                                onClose = { currentScreen = "home" },
+                                onStartTest = { questId, testId ->
+                                    // TODO: Navigate to specific test within quest
+                                    // For now, just show the test library
+                                    currentScreen = "home"
+                                },
+                                completedQuests = emptySet(), // TODO: Load from ViewModel
+                                completedTests = emptySet()    // TODO: Load from ViewModel
                             )
                         }
                     }

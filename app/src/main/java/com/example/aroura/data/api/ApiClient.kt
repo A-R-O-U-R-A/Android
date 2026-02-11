@@ -218,6 +218,13 @@ object ApiClient {
     }
     
     /**
+     * Create Reflect API Service with provided TokenManager
+     */
+    fun createReflectApiService(tokenManager: TokenManager): ReflectApiService {
+        return createRetrofit(tokenManager).create(ReflectApiService::class.java)
+    }
+    
+    /**
      * Create a service for other API endpoints
      */
     fun <T> createService(tokenManager: TokenManager, serviceClass: Class<T>): T {

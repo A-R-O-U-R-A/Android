@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,8 +31,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aroura.data.api.CalmAnxietyEntryData
+import com.example.aroura.data.api.HomeMoodData
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.theme.*
@@ -41,7 +45,8 @@ enum class ReflectOption {
     Journal,
     GuidedReflection,
     EmotionTracker,
-    Assessments
+    Assessments,
+    AnxietyJournal
 }
 
 /**
@@ -97,6 +102,13 @@ fun ReflectMenuScreen(
             Icons.Default.DateRange,
             MutedTeal,
             ReflectOption.EmotionTracker
+        ),
+        ReflectOptionData(
+            "Anxiety Journal",
+            "View your calm anxiety reflections",
+            Icons.Default.Favorite,
+            CalmingGreen,
+            ReflectOption.AnxietyJournal
         )
     )
 
@@ -293,14 +305,34 @@ private fun PremiumReflectOptionCard(
 }
 
 /**
- * Mood Check-In Screen - Premium Redesign
+ * Mood Check-In Screen - Premium Redesign with Database Integration
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MoodCheckInScreen(onBack: () -> Unit) {
+fun MoodCheckInScreen(
+    onBack: () -> Unit,
+    onViewHistory: () -> Unit = {},
+    viewModel: com.example.aroura.ui.viewmodels.ReflectViewModel? = null
+) {
     var visible by remember { mutableStateOf(false) }
     var selectedMood by remember { mutableStateOf<String?>(null) }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var moodNote by remember { mutableStateOf("") }
+    var showSavedConfirmation by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
+
+    // Observe ViewModel state if available
+    val moodSaved = viewModel?.moodSaved?.collectAsState()?.value ?: false
+    
+    LaunchedEffect(moodSaved) {
+        if (moodSaved) {
+            showSavedConfirmation = true
+            showSaveDialog = false
+            kotlinx.coroutines.delay(2000)
+            showSavedConfirmation = false
+            viewModel?.resetMoodSelection()
+        }
+    }
 
     val moods = listOf(
         Triple("Happy", Icons.Default.ThumbUp, CalmingPeach),
@@ -310,9 +342,126 @@ fun MoodCheckInScreen(onBack: () -> Unit) {
         Triple("Tired", Icons.Default.Home, TextDarkSecondary),
         Triple("Angry", Icons.Default.Close, Color(0xFFE57373))
     )
+    
+    // Save Dialog
+    if (showSaveDialog && selectedMood != null) {
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            containerColor = DeepSurface,
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = when (selectedMood) {
+                            "Happy" -> "😊"
+                            "Calm" -> "😌"
+                            "Sad" -> "😢"
+                            "Anxious" -> "😰"
+                            "Tired" -> "😴"
+                            "Angry" -> "😠"
+                            else -> "🙂"
+                        },
+                        fontSize = 48.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Feeling $selectedMood",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = OffWhite,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Add a note (optional)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextDarkSecondary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(
+                                Color.White.copy(alpha = 0.05f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                1.dp,
+                                Color.White.copy(alpha = 0.1f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(12.dp)
+                    ) {
+                        BasicTextField(
+                            value = moodNote,
+                            onValueChange = { moodNote = it },
+                            textStyle = TextStyle(
+                                color = OffWhite,
+                                fontSize = 15.sp
+                            ),
+                            cursorBrush = SolidColor(MutedTeal),
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        if (moodNote.isEmpty()) {
+                            Text(
+                                "What's on your mind?",
+                                color = TextDarkSecondary.copy(alpha = 0.5f),
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel?.selectMood(selectedMood!!)
+                        viewModel?.saveMood(moodNote)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MutedTeal),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Save", color = MidnightCharcoal, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveDialog = false }) {
+                    Text("Cancel", color = TextDarkSecondary)
+                }
+            }
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         ArouraBackground()
+        
+        // Saved confirmation overlay
+        AnimatedVisibility(
+            visible = showSavedConfirmation,
+            enter = fadeIn() + scaleIn(initialScale = 0.8f),
+            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+            modifier = Modifier.align(Alignment.Center)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .background(MutedTeal.copy(alpha = 0.2f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MutedTeal,
+                    modifier = Modifier.size(60.dp)
+                )
+            }
+        }
         
         Column(
             modifier = Modifier
@@ -323,7 +472,46 @@ fun MoodCheckInScreen(onBack: () -> Unit) {
         ) {
             PremiumBackTopBar("Mood Check-In", onBack)
             
-            Spacer(modifier = Modifier.height(ArouraSpacing.xxl.dp))
+            Spacer(modifier = Modifier.height(ArouraSpacing.lg.dp))
+            
+            // View History button
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                        .clickable { onViewHistory() }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = MutedTeal,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "View Mood History",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = OffWhite
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = TextDarkSecondary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             
             AnimatedVisibility(
                 visible = visible,
@@ -340,7 +528,7 @@ fun MoodCheckInScreen(onBack: () -> Unit) {
                 )
             }
             
-            Spacer(modifier = Modifier.height(ArouraSpacing.xxl.dp))
+            Spacer(modifier = Modifier.height(ArouraSpacing.xl.dp))
             
             Column(verticalArrangement = Arrangement.spacedBy(ArouraSpacing.md.dp)) {
                 moods.chunked(2).forEachIndexed { rowIndex, rowMoods ->
@@ -381,7 +569,7 @@ fun MoodCheckInScreen(onBack: () -> Unit) {
             ) {
                 PremiumSaveButton(
                     text = "Save Mood",
-                    onClick = { /* Save */ }
+                    onClick = { showSaveDialog = true }
                 )
             }
             
@@ -945,5 +1133,620 @@ private fun PremiumSaveButton(text: String, onClick: () -> Unit) {
             color = MidnightCharcoal,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+/**
+ * Mood History Screen - Shows all saved mood check-ins
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MoodHistoryScreen(
+    onBack: () -> Unit,
+    moodHistory: List<HomeMoodData> = emptyList(),
+    viewModel: com.example.aroura.ui.viewmodels.ReflectViewModel? = null
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { 
+        visible = true
+        // Refresh mood history when screen opens
+        viewModel?.fetchAllData()
+    }
+    
+    // Get mood history from viewModel if available
+    val moods = viewModel?.moodHistory?.collectAsState()?.value ?: moodHistory
+    
+    Box(modifier = Modifier.fillMaxSize()) {
+        ArouraBackground()
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        ) {
+            PremiumBackTopBar(
+                title = "Mood History",
+                onBack = onBack
+            )
+            
+            if (moods.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = ArouraSpacing.screenHorizontal.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.9f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(CalmingPeach.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📊", fontSize = 40.sp)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            Text(
+                                text = "No mood check-ins yet",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = OffWhite,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Start tracking how you feel to see\nyour emotional patterns over time.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextDarkSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Mood list
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        horizontal = ArouraSpacing.screenHorizontal.dp,
+                        vertical = ArouraSpacing.md.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Summary card
+                    item {
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { -20 })
+                        ) {
+                            MoodSummaryCard(
+                                totalCheckIns = moods.size,
+                                mostCommonMood = getMostCommonMoodFromList(moods)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "Recent Check-ins",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = OffWhite,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    items(moods) { mood ->
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(300, delayMillis = 100)) + slideInVertically(
+                                initialOffsetY = { 20 },
+                                animationSpec = tween(300, delayMillis = 100)
+                            )
+                        ) {
+                            MoodHistoryCard(mood = mood)
+                        }
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(100.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodSummaryCard(
+    totalCheckIns: Int,
+    mostCommonMood: String?
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        MutedTeal.copy(alpha = 0.15f),
+                        CalmingLavender.copy(alpha = 0.1f)
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                MutedTeal.copy(alpha = 0.2f),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Total check-ins
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = totalCheckIns.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MutedTeal,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Check-ins",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+            
+            // Divider
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(50.dp)
+                    .background(Color.White.copy(alpha = 0.1f))
+            )
+            
+            // Most common mood
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = mostCommonMood?.let { getMoodEmojiFromName(it) } ?: "—",
+                    fontSize = 28.sp
+                )
+                Text(
+                    text = mostCommonMood ?: "N/A",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodHistoryCard(mood: HomeMoodData) {
+    val moodColor = getMoodColorFromName(mood.moodLabel)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DeepSurface.copy(alpha = 0.5f))
+            .border(
+                1.dp,
+                Color.White.copy(alpha = 0.05f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Mood emoji
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(moodColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = getMoodEmojiFromName(mood.moodLabel),
+                    fontSize = 24.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = mood.moodLabel,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = OffWhite,
+                    fontWeight = FontWeight.Medium
+                )
+                
+                mood.note?.let { note ->
+                    if (note.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextDarkSecondary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            
+            // Date
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = formatMoodDate(mood.createdAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextDarkSecondary
+                )
+            }
+        }
+    }
+}
+
+// Helper functions
+private fun getMoodEmojiFromName(mood: String): String {
+    return when (mood.lowercase()) {
+        "happy" -> "😊"
+        "calm" -> "😌"
+        "sad" -> "😢"
+        "anxious" -> "😰"
+        "tired" -> "😴"
+        "angry" -> "😠"
+        else -> "🙂"
+    }
+}
+
+private fun getMoodColorFromName(mood: String): Color {
+    return when (mood.lowercase()) {
+        "happy" -> CalmingPeach
+        "calm" -> MutedTeal
+        "sad" -> SoftBlue
+        "anxious" -> CalmingLavender
+        "tired" -> TextDarkSecondary
+        "angry" -> Color(0xFFE57373)
+        else -> MutedTeal
+    }
+}
+
+private fun getMostCommonMoodFromList(moods: List<HomeMoodData>): String? {
+    if (moods.isEmpty()) return null
+    return moods.groupingBy { it.moodLabel }
+        .eachCount()
+        .maxByOrNull { it.value }
+        ?.key
+}
+
+private fun formatMoodDate(dateString: String): String {
+    return try {
+        val parts = dateString.split("T")
+        if (parts.isNotEmpty()) {
+            val dateParts = parts[0].split("-")
+            if (dateParts.size == 3) {
+                val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+                val month = dateParts[1].toIntOrNull()?.let { months.getOrNull(it - 1) } ?: dateParts[1]
+                val day = dateParts[2].toIntOrNull() ?: dateParts[2]
+                "$month $day"
+            } else dateString
+        } else dateString
+    } catch (e: Exception) {
+        dateString
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ANXIETY HISTORY SCREEN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Anxiety History Screen - Shows all saved calm anxiety entries
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AnxietyHistoryScreen(
+    onBack: () -> Unit,
+    anxietyHistory: List<CalmAnxietyEntryData> = emptyList(),
+    viewModel: com.example.aroura.ui.viewmodels.ReflectViewModel? = null
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { 
+        visible = true
+        viewModel?.fetchAnxietyHistory()
+    }
+    
+    // Get anxiety history from viewModel if available
+    val entries = viewModel?.anxietyHistory?.collectAsState()?.value ?: anxietyHistory
+    
+    Box(modifier = Modifier.fillMaxSize()) {
+        ArouraBackground()
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        ) {
+            PremiumBackTopBar(
+                title = "Anxiety Journal",
+                onBack = onBack
+            )
+            
+            if (entries.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = ArouraSpacing.screenHorizontal.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.9f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(CalmingLavender.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🧘", fontSize = 40.sp)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            Text(
+                                text = "No anxiety reflections yet",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = OffWhite,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Complete the Calm Your Anxiety\nflow to see your reflections here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextDarkSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Anxiety entries list
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        horizontal = ArouraSpacing.screenHorizontal.dp,
+                        vertical = ArouraSpacing.md.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Summary card
+                    item {
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { -20 })
+                        ) {
+                            AnxietySummaryCard(
+                                totalSessions = entries.size,
+                                completedSessions = entries.count { it.completedFully }
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "Recent Reflections",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = OffWhite,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    items(entries) { entry ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(300, delayMillis = 100)) + slideInVertically(
+                                initialOffsetY = { 20 },
+                                animationSpec = tween(300, delayMillis = 100)
+                            )
+                        ) {
+                            AnxietyHistoryCard(entry = entry)
+                        }
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(100.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnxietySummaryCard(
+    totalSessions: Int,
+    completedSessions: Int
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        CalmingLavender.copy(alpha = 0.15f),
+                        SoftBlue.copy(alpha = 0.1f)
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                CalmingLavender.copy(alpha = 0.2f),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = totalSessions.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = CalmingLavender,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Sessions",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+            
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(50.dp)
+                    .background(CalmingLavender.copy(alpha = 0.3f))
+            )
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = completedSessions.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MutedTeal,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Completed",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnxietyHistoryCard(
+    entry: CalmAnxietyEntryData
+) {
+    val primaryTrigger = entry.primaryTrigger.ifEmpty {
+        entry.reflections.firstOrNull()?.answer?.take(50) ?: "Reflection"
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DeepSurface.copy(alpha = 0.5f))
+            .border(
+                1.dp,
+                CalmingLavender.copy(alpha = 0.15f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(CalmingLavender.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🧘", fontSize = 18.sp)
+                    }
+                    
+                    Column {
+                        Text(
+                            text = formatMoodDate(entry.createdAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkSecondary
+                        )
+                        Text(
+                            text = if (entry.completedFully) "Completed" else "Partial",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (entry.completedFully) MutedTeal else CalmingPeach
+                        )
+                    }
+                }
+                
+                if (entry.durationSeconds > 0) {
+                    Text(
+                        text = "${entry.durationSeconds / 60}m ${entry.durationSeconds % 60}s",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextDarkSecondary
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "\"$primaryTrigger\"",
+                style = MaterialTheme.typography.bodyMedium,
+                color = OffWhite,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.Light
+            )
+            
+            if (entry.reflections.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "${entry.reflections.size} reflections recorded",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = CalmingLavender.copy(alpha = 0.7f)
+                )
+            }
+        }
     }
 }
