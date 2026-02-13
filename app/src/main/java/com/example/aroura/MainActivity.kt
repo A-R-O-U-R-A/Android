@@ -201,6 +201,16 @@ class MainActivity : ComponentActivity() {
                                     // Mark routine task as complete when mood is saved
                                     homeViewModel.completeRoutineTask("track_mood", "Journaling", "Track Your Mood")
                                     currentScreen = "home" 
+                                },
+                                onSaveEntry = { entry ->
+                                    // Save mood journal entry to database
+                                    homeViewModel.saveMoodJournalEntry(
+                                        note = entry.note,
+                                        moodLevel = entry.moodLevel,
+                                        feelings = entry.feelings.map { it.id to (it.label to it.isPositive) },
+                                        activities = entry.activities.map { Triple(it.id, it.label, it.emoji) },
+                                        photoUri = entry.photoUri
+                                    )
                                 }
                             )
                             "quiz_flow" -> QuizFlowScreen(

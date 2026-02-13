@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aroura.data.api.CalmAnxietyEntryData
 import com.example.aroura.data.api.HomeMoodData
+import com.example.aroura.data.api.MoodJournalEntryData
 import com.example.aroura.ui.components.ArouraBackground
 import com.example.aroura.ui.components.ArouraProfileIcon
 import com.example.aroura.ui.theme.*
@@ -45,6 +48,7 @@ enum class ReflectOption {
     Journal,
     GuidedReflection,
     MoodHistory,
+    MoodJournalHistory,  // Track Your Mood detailed entries
     Assessments,
     AnxietyJournal
 }
@@ -70,7 +74,7 @@ fun ReflectMenuScreen(
     val options = listOf(
         ReflectOptionData(
             "How are you feeling?",
-            "Check in and reflect on your mood.",
+            "Quick mood check-in",
             Icons.Default.Face,
             CalmingPeach,
             ReflectOption.MoodCheckIn
@@ -98,9 +102,16 @@ fun ReflectMenuScreen(
         ),
         ReflectOptionData(
             "Track Your Mood",
-            "View your mood history and patterns",
+            "View your detailed mood journal",
             Icons.Default.DateRange,
             MutedTeal,
+            ReflectOption.MoodJournalHistory
+        ),
+        ReflectOptionData(
+            "Mood Check-in History",
+            "View quick mood check-ins",
+            Icons.Default.DateRange,
+            SoftBlue,
             ReflectOption.MoodHistory
         ),
         ReflectOptionData(
@@ -1459,6 +1470,370 @@ private fun formatMoodDate(dateString: String): String {
         } else dateString
     } catch (e: Exception) {
         dateString
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MOOD JOURNAL HISTORY SCREEN (Track Your Mood - detailed entries)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Mood Journal History Screen - Shows all saved mood journal entries from Track Your Mood
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun MoodJournalHistoryScreen(
+    onBack: () -> Unit,
+    viewModel: com.example.aroura.ui.viewmodels.ReflectViewModel? = null
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { 
+        visible = true
+        viewModel?.fetchAllData()
+    }
+    
+    // Get mood journal history from viewModel
+    val entries = viewModel?.moodJournalHistory?.collectAsState()?.value ?: emptyList()
+    
+    Box(modifier = Modifier.fillMaxSize()) {
+        ArouraBackground()
+        
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        ) {
+            PremiumBackTopBar(
+                title = "Mood Journal",
+                onBack = onBack
+            )
+            
+            if (entries.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = ArouraSpacing.screenHorizontal.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.9f)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .background(MutedTeal.copy(alpha = 0.15f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📝", fontSize = 40.sp)
+                            }
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            Text(
+                                text = "No mood journal entries yet",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = OffWhite,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Text(
+                                text = "Complete \"Track Your Mood\" in your\ndaily routine to see entries here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextDarkSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Journal entries list
+                LazyColumn(
+                    contentPadding = PaddingValues(
+                        horizontal = ArouraSpacing.screenHorizontal.dp,
+                        vertical = ArouraSpacing.md.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Summary card
+                    item {
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(400)) + slideInVertically(initialOffsetY = { -20 })
+                        ) {
+                            MoodJournalSummaryCard(
+                                totalEntries = entries.size,
+                                averageMood = entries.map { it.moodLevel }.average().toFloat()
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        Text(
+                            text = "Recent Entries",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = OffWhite,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    items(entries) { entry ->
+                        AnimatedVisibility(
+                            visible = visible,
+                            enter = fadeIn(tween(300, delayMillis = 100)) + slideInVertically(
+                                initialOffsetY = { 20 },
+                                animationSpec = tween(300, delayMillis = 100)
+                            )
+                        ) {
+                            MoodJournalEntryCard(entry = entry)
+                        }
+                    }
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(100.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoodJournalSummaryCard(
+    totalEntries: Int,
+    averageMood: Float
+) {
+    val moodEmoji = when {
+        averageMood >= 0.8f -> "😄"
+        averageMood >= 0.6f -> "🙂"
+        averageMood >= 0.4f -> "😐"
+        averageMood >= 0.2f -> "😕"
+        else -> "😔"
+    }
+    
+    val moodLabel = when {
+        averageMood >= 0.8f -> "Happy"
+        averageMood >= 0.6f -> "Good"
+        averageMood >= 0.4f -> "Okay"
+        averageMood >= 0.2f -> "Low"
+        else -> "Struggling"
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        MutedTeal.copy(alpha = 0.15f),
+                        CalmingLavender.copy(alpha = 0.1f)
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                MutedTeal.copy(alpha = 0.2f),
+                RoundedCornerShape(16.dp)
+            )
+            .padding(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Total entries
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = totalEntries.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MutedTeal,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Entries",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+            
+            // Divider
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(50.dp)
+                    .background(Color.White.copy(alpha = 0.1f))
+            )
+            
+            // Average mood
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = moodEmoji,
+                    fontSize = 28.sp
+                )
+                Text(
+                    text = moodLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextDarkSecondary
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MoodJournalEntryCard(entry: MoodJournalEntryData) {
+    val moodEmoji = when {
+        entry.moodLevel >= 0.8f -> "😄"
+        entry.moodLevel >= 0.6f -> "🙂"
+        entry.moodLevel >= 0.4f -> "😐"
+        entry.moodLevel >= 0.2f -> "😕"
+        else -> "😔"
+    }
+    
+    val moodColor = when {
+        entry.moodLevel >= 0.6f -> CalmingGreen
+        entry.moodLevel >= 0.4f -> MutedTeal
+        else -> SoftBlue
+    }
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DeepSurface.copy(alpha = 0.5f))
+            .border(
+                1.dp,
+                moodColor.copy(alpha = 0.2f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp)
+    ) {
+        Column {
+            // Header row with emoji and date
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(moodColor.copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(moodEmoji, fontSize = 20.sp)
+                    }
+                    
+                    Spacer(modifier = Modifier.width(12.dp))
+                    
+                    Column {
+                        Text(
+                            text = getMoodLabelFromLevel(entry.moodLevel),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = OffWhite,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = formatMoodDate(entry.createdAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkSecondary
+                        )
+                    }
+                }
+            }
+            
+            // Note (if present)
+            if (entry.note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = entry.note,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextDarkSecondary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            // Feelings tags
+            if (entry.feelings.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    entry.feelings.take(5).forEach { feeling ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (feeling.isPositive) CalmingGreen.copy(alpha = 0.15f)
+                                    else SoftBlue.copy(alpha = 0.15f)
+                                )
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = feeling.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (feeling.isPositive) CalmingGreen else SoftBlue
+                            )
+                        }
+                    }
+                    if (entry.feelings.size > 5) {
+                        Text(
+                            text = "+${entry.feelings.size - 5}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkTertiary
+                        )
+                    }
+                }
+            }
+            
+            // Activities
+            if (entry.activities.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    entry.activities.take(6).forEach { activity ->
+                        Text(activity.emoji, fontSize = 16.sp)
+                    }
+                    if (entry.activities.size > 6) {
+                        Text(
+                            text = "+${entry.activities.size - 6}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkTertiary
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun getMoodLabelFromLevel(level: Float): String {
+    return when {
+        level >= 0.8f -> "Feeling Great"
+        level >= 0.6f -> "Doing Good"
+        level >= 0.4f -> "Feeling Okay"
+        level >= 0.2f -> "Feeling Low"
+        else -> "Struggling"
     }
 }
 

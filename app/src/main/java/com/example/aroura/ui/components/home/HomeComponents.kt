@@ -776,9 +776,16 @@ fun YourRoutineSection(
     tasks: List<RoutineTask>,
     onTaskClick: (RoutineTask) -> Unit,
     currentDayIndex: Int = 0,
+    currentStreak: Int = 0,
+    longestStreak: Int = 0,
+    todayAllCompleted: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val days = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+    
+    // Calculate completed tasks for today
+    val completedTasksCount = tasks.count { it.isCompleted }
+    val totalTasks = tasks.size
     
     Column(modifier = modifier.fillMaxWidth()) {
         // Header
@@ -803,6 +810,19 @@ fun YourRoutineSection(
         }
         
         Spacer(modifier = Modifier.height(16.dp))
+        
+        // ═══════════════════════════════════════════════════════════════════════
+        // STREAK DISPLAY CARD
+        // ═══════════════════════════════════════════════════════════════════════
+        StreakDisplayCard(
+            currentStreak = currentStreak,
+            longestStreak = longestStreak,
+            completedTasksCount = completedTasksCount,
+            totalTasks = totalTasks,
+            todayAllCompleted = todayAllCompleted
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
         
         // Day selector
         Row(
@@ -836,6 +856,318 @@ fun YourRoutineSection(
                 onClick = { onTaskClick(task) }
             )
             Spacer(modifier = Modifier.height(12.dp))
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STREAK DISPLAY CARD
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Composable
+private fun StreakDisplayCard(
+    currentStreak: Int,
+    longestStreak: Int,
+    completedTasksCount: Int,
+    totalTasks: Int,
+    todayAllCompleted: Boolean
+) {
+    // Animated progress for today
+    val progress = if (totalTasks > 0) completedTasksCount.toFloat() / totalTasks else 0f
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress,
+        animationSpec = tween(600, easing = EaseOutCubic),
+        label = "progressAnim"
+    )
+    
+    // Fire emoji scaling animation when streak is active
+    val infiniteTransition = rememberInfiniteTransition(label = "fireAnim")
+    val fireScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fireScale"
+    )
+    
+    // Glow animation for when all tasks completed
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = DeepSurface.copy(alpha = 0.7f)
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Subtle gradient glow when all completed
+            if (todayAllCompleted) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(
+                                    CalmingGreen.copy(alpha = glowAlpha),
+                                    Color.Transparent
+                                ),
+                                radius = 400f
+                            )
+                        )
+                )
+            }
+            
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Left side - Current Streak
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Background glow circle
+                            if (currentStreak > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .background(
+                                            Brush.radialGradient(
+                                                colors = listOf(
+                                                    CalmingPeach.copy(alpha = 0.25f),
+                                                    Color.Transparent
+                                                )
+                                            ),
+                                            CircleShape
+                                        )
+                                )
+                            }
+                            
+                            // Fire emoji
+                            Text(
+                                text = if (currentStreak > 0) "🔥" else "💤",
+                                fontSize = if (currentStreak > 0) 36.sp else 32.sp,
+                                modifier = Modifier.scale(
+                                    if (currentStreak > 0) fireScale else 1f
+                                )
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Streak number with animation
+                        Text(
+                            text = currentStreak.toString(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (currentStreak > 0) CalmingPeach else TextDarkSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = if (currentStreak == 1) "day streak" else "day streak",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkSecondary
+                        )
+                    }
+                    
+                    // Center - Today's Progress
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Today's Progress",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = TextDarkSecondary
+                        )
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        // Circular progress
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(56.dp)
+                        ) {
+                            // Background circle
+                            Canvas(modifier = Modifier.size(56.dp)) {
+                                drawArc(
+                                    color = TextDarkTertiary.copy(alpha = 0.2f),
+                                    startAngle = -90f,
+                                    sweepAngle = 360f,
+                                    useCenter = false,
+                                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                                )
+                            }
+                            
+                            // Progress arc
+                            Canvas(modifier = Modifier.size(56.dp)) {
+                                drawArc(
+                                    color = if (todayAllCompleted) CalmingGreen else MutedTeal,
+                                    startAngle = -90f,
+                                    sweepAngle = animatedProgress * 360f,
+                                    useCenter = false,
+                                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
+                                )
+                            }
+                            
+                            // Center text
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "$completedTasksCount/$totalTasks",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = OffWhite,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Status text
+                        Text(
+                            text = when {
+                                todayAllCompleted -> "All done! 🎉"
+                                completedTasksCount > 0 -> "Keep going!"
+                                else -> "Start your day"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (todayAllCompleted) CalmingGreen else TextDarkSecondary
+                        )
+                    }
+                    
+                    // Right side - Longest Streak
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Trophy icon background
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (longestStreak > 0) 
+                                            CalmingLavender.copy(alpha = 0.15f)
+                                        else 
+                                            Color.Transparent,
+                                        CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "🏆",
+                                    fontSize = 28.sp
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = longestStreak.toString(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = CalmingLavender,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        Text(
+                            text = "best streak",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextDarkSecondary
+                        )
+                    }
+                }
+                
+                // Motivational message when streak is active
+                if (currentStreak > 0 && !todayAllCompleted) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MutedTeal.copy(alpha = 0.1f))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "✨",
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Complete all tasks to keep your streak!",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MutedTeal
+                            )
+                        }
+                    }
+                }
+                
+                // Celebration message when all completed
+                if (todayAllCompleted) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CalmingGreen.copy(alpha = 0.1f))
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "🌟",
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = when {
+                                    currentStreak >= 7 -> "Amazing! You've been consistent for a week!"
+                                    currentStreak >= 3 -> "Great job! You're building a habit!"
+                                    currentStreak > 0 -> "Well done! Come back tomorrow to grow your streak!"
+                                    else -> "You did it! Start a streak by completing all tasks tomorrow!"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = CalmingGreen
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

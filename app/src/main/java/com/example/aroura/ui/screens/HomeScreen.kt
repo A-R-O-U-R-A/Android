@@ -299,6 +299,7 @@ fun HomeScreen(
                                             ReflectOption.Journal -> "journal"
                                             ReflectOption.GuidedReflection -> "guided"
                                             ReflectOption.MoodHistory -> "mood_history_standalone"
+                                            ReflectOption.MoodJournalHistory -> "mood_journal_history"
                                             ReflectOption.Assessments -> "library"
                                             ReflectOption.AnxietyJournal -> "anxiety_history"
                                         }
@@ -342,6 +343,10 @@ fun HomeScreen(
                                 "voice_journal" -> VoiceJournalScreen(onBack = { reflectNavigationState = "journal" })
                                 "guided" -> GuidedReflectionScreen(onBack = { reflectNavigationState = "menu" })
                                 "mood_history_standalone" -> MoodHistoryScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    viewModel = reflectViewModel
+                                )
+                                "mood_journal_history" -> MoodJournalHistoryScreen(
                                     onBack = { reflectNavigationState = "menu" },
                                     viewModel = reflectViewModel
                                 )
@@ -647,6 +652,11 @@ fun HomeContent(
         val dateForSelectedDay = getDateForDayIndex(selectedDay)
         val completedTaskIds = routineCompletions[dateForSelectedDay] ?: emptyList()
         
+        // Get streak data
+        val currentStreak = uiState?.currentStreak ?: 0
+        val longestStreak = uiState?.longestStreak ?: 0
+        val todayAllCompleted = uiState?.todayAllCompleted ?: false
+        
         YourRoutineSection(
             selectedDay = selectedDay.coerceIn(0, 6),
             onDaySelected = { day ->
@@ -663,6 +673,9 @@ fun HomeContent(
                 task.copy(isCompleted = isCompleted)
             },
             currentDayIndex = getCurrentDayIndex(),
+            currentStreak = currentStreak,
+            longestStreak = longestStreak,
+            todayAllCompleted = todayAllCompleted,
             onTaskClick = { task ->
                 when (task.id) {
                     "track_mood" -> {

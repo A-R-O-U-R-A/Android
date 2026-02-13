@@ -56,6 +56,9 @@ interface ReflectApiService {
         @Query("endDate") endDate: String? = null
     ): Response<RoutineCompletionsResponse>
     
+    @GET("reflect/routine/streak")
+    suspend fun getRoutineStreak(): Response<RoutineStreakResponse>
+    
     // ═══════════════════════════════════════════════════════════════════════════
     // Calm Anxiety Entries
     // ═══════════════════════════════════════════════════════════════════════════
@@ -71,6 +74,22 @@ interface ReflectApiService {
     
     @GET("reflect/calm-anxiety/{entryId}")
     suspend fun getCalmAnxietyEntry(@Path("entryId") entryId: String): Response<CalmAnxietyResponse>
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Mood Journal (Track Your Mood - detailed entries)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    @POST("reflect/mood-journal")
+    suspend fun saveMoodJournalEntry(@Body request: SaveMoodJournalRequest): Response<MoodJournalResponse>
+    
+    @GET("reflect/mood-journal")
+    suspend fun getMoodJournalHistory(
+        @Query("limit") limit: Int = 30,
+        @Query("offset") offset: Int = 0
+    ): Response<MoodJournalHistoryResponse>
+    
+    @GET("reflect/mood-journal/{entryId}")
+    suspend fun getMoodJournalEntry(@Path("entryId") entryId: String): Response<MoodJournalResponse>
     
     // ═══════════════════════════════════════════════════════════════════════════
     // Self-Discovery Quest
@@ -199,7 +218,8 @@ data class PaginationInfo(
 data class CompleteRoutineRequest(
     val taskId: String,
     val category: String,
-    val title: String
+    val title: String,
+    val completedDate: String  // Client sends local date in YYYY-MM-DD format
 )
 
 @Serializable
@@ -215,7 +235,34 @@ data class RoutineCompletionData(
 @Serializable
 data class RoutineCompletionResponse(
     val success: Boolean,
-    val completion: RoutineCompletionData
+    val completion: RoutineCompletionData,
+    val allTasksCompleted: Boolean = false,
+    val streak: RoutineStreakUpdateData? = null
+)
+
+@Serializable
+data class RoutineStreakUpdateData(
+    val currentStreak: Int,
+    val longestStreak: Int,
+    val totalCompletedDays: Int,
+    val isNewRecord: Boolean = false
+)
+
+@Serializable
+data class RoutineStreakData(
+    val currentStreak: Int,
+    val longestStreak: Int,
+    val lastCompletedDate: String? = null,
+    val totalCompletedDays: Int,
+    val todayCompleted: Boolean,
+    val completedTasksToday: List<String> = emptyList(),
+    val fullyCompletedDaysThisWeek: List<String> = emptyList()
+)
+
+@Serializable
+data class RoutineStreakResponse(
+    val success: Boolean,
+    val streak: RoutineStreakData
 )
 
 @Serializable
@@ -479,4 +526,55 @@ data class CalmAnxietyHistoryResponse(
     val success: Boolean,
     val entries: List<CalmAnxietyEntryData>,
     val pagination: CalmAnxietyPagination
+)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Mood Journal Data Models (Track Your Mood - detailed entries)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+@Serializable
+data class MoodJournalFeeling(
+    val id: String,
+    val label: String,
+    val isPositive: Boolean
+)
+
+@Serializable
+data class MoodJournalActivity(
+    val id: String,
+    val label: String,
+    val emoji: String
+)
+
+@Serializable
+data class SaveMoodJournalRequest(
+    val note: String = "",
+    val moodLevel: Float,
+    val feelings: List<MoodJournalFeeling> = emptyList(),
+    val activities: List<MoodJournalActivity> = emptyList(),
+    val photoUri: String? = null
+)
+
+@Serializable
+data class MoodJournalEntryData(
+    val id: String,
+    val note: String,
+    val moodLevel: Float,
+    val feelings: List<MoodJournalFeeling> = emptyList(),
+    val activities: List<MoodJournalActivity> = emptyList(),
+    val photoUri: String? = null,
+    val createdAt: String
+)
+
+@Serializable
+data class MoodJournalResponse(
+    val success: Boolean,
+    val entry: MoodJournalEntryData
+)
+
+@Serializable
+data class MoodJournalHistoryResponse(
+    val success: Boolean,
+    val entries: List<MoodJournalEntryData>,
+    val pagination: PaginationInfo
 )

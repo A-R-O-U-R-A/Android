@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.aroura.data.api.ApiClient
 import com.example.aroura.data.api.CalmAnxietyEntryData
 import com.example.aroura.data.api.HomeMoodData
+import com.example.aroura.data.api.MoodJournalEntryData
 import com.example.aroura.data.api.TestResultData
 import com.example.aroura.data.api.QuizResultData
 import com.example.aroura.data.api.QuestProgressData
@@ -33,9 +34,13 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
     private val tokenManager = TokenManager.getInstance(application)
     private val reflectApi = ApiClient.createReflectApiService(tokenManager)
     
-    // Mood history
+    // Mood history (How are you feeling - quick check-ins)
     private val _moodHistory = MutableStateFlow<List<HomeMoodData>>(emptyList())
     val moodHistory: StateFlow<List<HomeMoodData>> = _moodHistory.asStateFlow()
+    
+    // Mood journal history (Track Your Mood - detailed entries)
+    private val _moodJournalHistory = MutableStateFlow<List<MoodJournalEntryData>>(emptyList())
+    val moodJournalHistory: StateFlow<List<MoodJournalEntryData>> = _moodJournalHistory.asStateFlow()
     
     // Anxiety history
     private val _anxietyHistory = MutableStateFlow<List<CalmAnxietyEntryData>>(emptyList())
@@ -92,6 +97,7 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
             try {
                 // Fetch in parallel
                 launch { fetchMoodHistory() }
+                launch { fetchMoodJournalHistory() }
                 launch { fetchTestResults() }
                 launch { fetchQuizResults() }
                 launch { fetchQuestProgress() }
@@ -106,7 +112,7 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
     }
     
     /**
-     * Fetch mood check-in history
+     * Fetch mood check-in history (How are you feeling)
      */
     private suspend fun fetchMoodHistory() {
         try {
@@ -116,6 +122,20 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
             }
         } catch (e: Exception) {
             Log.e("ReflectViewModel", "Error fetching mood history", e)
+        }
+    }
+    
+    /**
+     * Fetch mood journal history (Track Your Mood - detailed entries)
+     */
+    private suspend fun fetchMoodJournalHistory() {
+        try {
+            val response = reflectApi.getMoodJournalHistory(limit = 30)
+            if (response.isSuccessful && response.body()?.success == true) {
+                _moodJournalHistory.value = response.body()?.entries ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("ReflectViewModel", "Error fetching mood journal history", e)
         }
     }
     

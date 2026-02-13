@@ -209,18 +209,14 @@ fun BreathingScreen(
     var animationProgress by remember { mutableFloatStateOf(0f) }
     var pausedAtProgress by remember { mutableFloatStateOf(0f) }
     
-    // Track cycles completed for marking routine as done
-    var cyclesCompleted by remember { mutableIntStateOf(0) }
+    // Track if routine has been marked complete
     var hasMarkedComplete by remember { mutableStateOf(false) }
     
-    // Mark complete after 1 full cycle (14 seconds)
-    LaunchedEffect(animationProgress) {
-        if (animationProgress >= 359f && !hasMarkedComplete) {
-            cyclesCompleted++
-            if (cyclesCompleted >= 1 && !hasMarkedComplete) {
-                hasMarkedComplete = true
-                onComplete()
-            }
+    // Mark complete IMMEDIATELY when screen opens (per user request)
+    LaunchedEffect(Unit) {
+        if (!hasMarkedComplete) {
+            hasMarkedComplete = true
+            onComplete()
         }
     }
     

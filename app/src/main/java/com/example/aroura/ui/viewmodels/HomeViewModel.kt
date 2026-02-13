@@ -10,9 +10,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.aroura.data.api.ApiClient
 import com.example.aroura.data.api.CompleteRoutineRequest
 import com.example.aroura.data.api.HomeMoodData
+import com.example.aroura.data.api.MoodJournalActivity
+import com.example.aroura.data.api.MoodJournalFeeling
 import com.example.aroura.data.api.QuestProgressData
 import com.example.aroura.data.api.ReflectApiService
 import com.example.aroura.data.api.SaveHomeMoodRequest
+import com.example.aroura.data.api.SaveMoodJournalRequest
 import com.example.aroura.data.api.TestResultSummaryData
 import com.example.aroura.data.local.TokenManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +66,13 @@ class HomeViewModel(
         val routineCompletions: Map<String, List<String>> = emptyMap(), // date -> taskIds
         val selectedDay: Int = getCurrentDayIndex(),
         
+        // Streak
+        val currentStreak: Int = 0,
+        val longestStreak: Int = 0,
+        val todayAllCompleted: Boolean = false,
+        val completedTasksToday: List<String> = emptyList(),
+        val showNewStreakRecord: Boolean = false,
+        
         // Quest
         val questProgress: QuestProgressData? = null,
         
@@ -92,6 +102,7 @@ class HomeViewModel(
             launch { fetchQuestProgress() }
             launch { fetchTestResultsSummary() }
             launch { fetchRoutineCompletions() }
+            launch { fetchRoutineStreak() }
             
             _uiState.value = _uiState.value.copy(isLoading = false)
         }
@@ -217,6 +228,47 @@ class HomeViewModel(
     }
     
     // ═══════════════════════════════════════════════════════════════════════════
+    // MOOD JOURNAL (Track Your Mood)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Save mood journal entry from Track Your Mood routine
+     */
+    fun saveMoodJournalEntry(
+        note: String,
+        moodLevel: Float,
+        feelings: List<Pair<String, Pair<String, Boolean>>>, // (id, (label, isPositive))
+        activities: List<Triple<String, String, String>>, // (id, label, emoji)
+        photoUri: String? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                val request = SaveMoodJournalRequest(
+                    note = note,
+                    moodLevel = moodLevel,
+                    feelings = feelings.map { (id, labelPositive) ->
+                        MoodJournalFeeling(id, labelPositive.first, labelPositive.second)
+                    },
+                    activities = activities.map { (id, label, emoji) ->
+                        MoodJournalActivity(id, label, emoji)
+                    },
+                    photoUri = photoUri
+                )
+                
+                val response = reflectApi.saveMoodJournalEntry(request)
+                
+                if (response.isSuccessful && response.body()?.success == true) {
+                    Log.d(TAG, "Mood journal entry saved successfully")
+                } else {
+                    Log.e(TAG, "Mood journal save failed: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Mood journal save error", e)
+            }
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
     // ROUTINE TRACKING
     // ═══════════════════════════════════════════════════════════════════════════
     
@@ -231,18 +283,38 @@ class HomeViewModel(
     fun completeRoutineTask(taskId: String, category: String, title: String) {
         viewModelScope.launch {
             try {
+                // Get today's date in the user's local timezone
+                val todayDate = getDateForDayIndex(getCurrentDayIndex())
+                
                 val request = CompleteRoutineRequest(
                     taskId = taskId,
                     category = category,
-                    title = title
+                    title = title,
+                    completedDate = todayDate  // Send local date to backend
                 )
                 
                 val response = reflectApi.completeRoutineTask(request)
                 
                 if (response.isSuccessful && response.body()?.success == true) {
-                    // Refresh completions
-                    fetchRoutineCompletions()
-                    Log.d(TAG, "Routine task completed: $taskId")
+                    val body = response.body()!!
+                    
+                    // Await the completions refresh - this updates the checkbox UI
+                    fetchRoutineCompletionsSync()
+                    
+                    // Await the streak refresh
+                    fetchRoutineStreakSync()
+                    
+                    // Update streak if all tasks completed
+                    if (body.allTasksCompleted && body.streak != null) {
+                        _uiState.value = _uiState.value.copy(
+                            currentStreak = body.streak.currentStreak,
+                            longestStreak = body.streak.longestStreak,
+                            todayAllCompleted = true,
+                            showNewStreakRecord = body.streak.isNewRecord
+                        )
+                    }
+                } else {
+                    Log.e(TAG, "Task completion failed: ${response.code()}")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Complete routine task error", e)
@@ -250,22 +322,54 @@ class HomeViewModel(
         }
     }
     
+    fun dismissNewStreakRecord() {
+        _uiState.value = _uiState.value.copy(showNewStreakRecord = false)
+    }
+    
+    private suspend fun fetchRoutineStreakSync() {
+        try {
+            val response = reflectApi.getRoutineStreak()
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val streakData = response.body()!!.streak
+                _uiState.value = _uiState.value.copy(
+                    currentStreak = streakData.currentStreak,
+                    longestStreak = streakData.longestStreak,
+                    todayAllCompleted = streakData.todayCompleted,
+                    completedTasksToday = streakData.completedTasksToday
+                )
+                Log.d(TAG, "Streak fetched sync: current=${streakData.currentStreak}, longest=${streakData.longestStreak}")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Fetch routine streak sync error", e)
+        }
+    }
+    
+    private fun fetchRoutineStreak() {
+        viewModelScope.launch {
+            fetchRoutineStreakSync()
+        }
+    }
+    
+    private suspend fun fetchRoutineCompletionsSync() {
+        try {
+            val response = reflectApi.getRoutineCompletions()
+            
+            if (response.isSuccessful && response.body()?.success == true) {
+                val completions = response.body()!!.completions
+                val taskIdsByDate = completions.mapValues { (_, completionList) ->
+                    completionList.map { it.taskId }
+                }
+                _uiState.value = _uiState.value.copy(routineCompletions = taskIdsByDate)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Fetch routine completions error", e)
+        }
+    }
+    
     private fun fetchRoutineCompletions() {
         viewModelScope.launch {
-            try {
-                // Get completions for the last 7 days
-                val response = reflectApi.getRoutineCompletions()
-                
-                if (response.isSuccessful && response.body()?.success == true) {
-                    val completions = response.body()!!.completions
-                    val taskIdsByDate = completions.mapValues { (_, completionList) ->
-                        completionList.map { it.taskId }
-                    }
-                    _uiState.value = _uiState.value.copy(routineCompletions = taskIdsByDate)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Fetch routine completions error", e)
-            }
+            fetchRoutineCompletionsSync()
         }
     }
     

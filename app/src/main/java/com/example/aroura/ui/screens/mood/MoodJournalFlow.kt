@@ -151,7 +151,8 @@ val allActivities = listOf(
 @Composable
 fun MoodJournalFlowScreen(
     onClose: () -> Unit,
-    onSaveComplete: () -> Unit = {}
+    onSaveComplete: () -> Unit = {},
+    onSaveEntry: (MoodEntry) -> Unit = {}
 ) {
     // Entry state
     var entry by remember { mutableStateOf(MoodEntry()) }
@@ -318,7 +319,9 @@ fun MoodJournalFlowScreen(
                 SaveEntrySection(
                     enabled = hasMoodBeenSet,
                     onSave = {
-                        // Save the entry (would persist to database)
+                        // Save the entry data via callback
+                        onSaveEntry(entry)
+                        // Notify completion for routine tracking
                         onSaveComplete()
                         onClose()
                     }
