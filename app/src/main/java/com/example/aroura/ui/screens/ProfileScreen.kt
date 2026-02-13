@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.aroura.data.api.UserProfileData
@@ -41,7 +42,8 @@ fun ProfileScreen(
     profileViewModel: ProfileViewModel,
     onBack: () -> Unit, 
     onNavigate: (String) -> Unit = {},
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    badgeEarned: Boolean = false
 ) {
     val context = LocalContext.current
     val profileState by profileViewModel.profileState.collectAsState()
@@ -127,7 +129,8 @@ fun ProfileScreen(
                         userProfile = userProfile,
                         isLoading = isLoading || uploadProgress,
                         onPictureClick = { showPictureOptions = true },
-                        onNameClick = { showEditNameDialog = true }
+                        onNameClick = { showEditNameDialog = true },
+                        badgeEarned = badgeEarned
                     )
                 }
 
@@ -354,7 +357,8 @@ private fun ProfileHeader(
     userProfile: UserProfileData?,
     isLoading: Boolean,
     onPictureClick: () -> Unit,
-    onNameClick: () -> Unit
+    onNameClick: () -> Unit,
+    badgeEarned: Boolean = false
 ) {
     val context = LocalContext.current
     
@@ -371,6 +375,26 @@ private fun ProfileHeader(
                 .clickable(onClick = onPictureClick),
             contentAlignment = Alignment.Center
         ) {
+            // Golden ring for badge earners
+            if (badgeEarned) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Transparent, CircleShape)
+                        .border(
+                            width = 3.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFFFFD700),
+                                    Color(0xFFFFA500),
+                                    Color(0xFFFFD700)
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+            }
+            
             if (isLoading) {
                 // Loading state
                 Box(
@@ -500,6 +524,32 @@ private fun ProfileHeader(
                     color = MutedTeal,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
+            }
+        }
+        
+        // Self-Aware Badge
+        if (badgeEarned) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Surface(
+                color = Color(0xFFFFD700).copy(alpha = 0.15f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "🏆",
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Self-Aware",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFFFFD700),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

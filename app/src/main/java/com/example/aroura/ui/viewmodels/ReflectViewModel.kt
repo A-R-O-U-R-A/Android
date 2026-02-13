@@ -11,6 +11,7 @@ import com.example.aroura.data.api.MoodJournalEntryData
 import com.example.aroura.data.api.TestResultData
 import com.example.aroura.data.api.QuizResultData
 import com.example.aroura.data.api.QuestProgressData
+import com.example.aroura.data.api.SavedQuestAnswerEntry
 import com.example.aroura.data.api.SaveHomeMoodRequest
 import com.example.aroura.data.api.SaveQuizResultRequest
 import com.example.aroura.data.local.TokenManager
@@ -58,6 +59,10 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
     private val _questProgress = MutableStateFlow<QuestProgressData?>(null)
     val questProgress: StateFlow<QuestProgressData?> = _questProgress.asStateFlow()
     
+    // Quest answers history
+    private val _questAnswers = MutableStateFlow<List<SavedQuestAnswerEntry>>(emptyList())
+    val questAnswers: StateFlow<List<SavedQuestAnswerEntry>> = _questAnswers.asStateFlow()
+    
     // Summary stats
     private val _totalMoodCheckIns = MutableStateFlow(0)
     val totalMoodCheckIns: StateFlow<Int> = _totalMoodCheckIns.asStateFlow()
@@ -101,6 +106,7 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
                 launch { fetchTestResults() }
                 launch { fetchQuizResults() }
                 launch { fetchQuestProgress() }
+                launch { fetchQuestAnswers() }
                 launch { fetchSummary() }
             } catch (e: Exception) {
                 Log.e("ReflectViewModel", "Error fetching data", e)
@@ -212,6 +218,20 @@ class ReflectViewModel(application: Application) : AndroidViewModel(application)
             }
         } catch (e: Exception) {
             Log.e("ReflectViewModel", "Error fetching summary", e)
+        }
+    }
+    
+    /**
+     * Fetch saved quest answers history
+     */
+    private suspend fun fetchQuestAnswers() {
+        try {
+            val response = reflectApi.getQuestAnswers()
+            if (response.isSuccessful && response.body()?.success == true) {
+                _questAnswers.value = response.body()?.answers ?: emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("ReflectViewModel", "Error fetching quest answers", e)
         }
     }
     

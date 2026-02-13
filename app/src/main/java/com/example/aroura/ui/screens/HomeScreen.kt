@@ -43,6 +43,7 @@ import com.example.aroura.ui.theme.*
 import com.example.aroura.data.ReflectTestId
 import com.example.aroura.ui.screens.reflect.ReflectLibraryScreen
 import com.example.aroura.ui.screens.reflect.TestFlowScreen
+import com.example.aroura.ui.screens.quest.QuestHistoryScreen
 import com.example.aroura.ui.viewmodels.ProfileViewModel
 import com.example.aroura.ui.viewmodels.HomeViewModel
 import com.example.aroura.ui.viewmodels.ReflectViewModel
@@ -160,12 +161,16 @@ fun HomeScreen(
         } else if (showProfile) {
             Box(modifier = Modifier.fillMaxSize().zIndex(8f)) {
                 when (profileNavigationState) {
-                    "menu" -> ProfileScreen(
-                        profileViewModel = profileViewModel,
-                        onBack = { showProfile = false },
-                        onNavigate = { dest -> profileNavigationState = dest },
-                        onLogout = onNavigateToChat // This triggers navigation back to Welcome screen
-                    )
+                    "menu" -> {
+                        val questBadgeEarned = homeViewModel?.uiState?.collectAsState()?.value?.questProgress?.badgeEarned == true
+                        ProfileScreen(
+                            profileViewModel = profileViewModel,
+                            onBack = { showProfile = false },
+                            onNavigate = { dest -> profileNavigationState = dest },
+                            onLogout = onNavigateToChat,
+                            badgeEarned = questBadgeEarned
+                        )
+                    }
                     "language" -> LanguageScreen(
                         preferencesManager = preferencesManager,
                         onBack = { profileNavigationState = "menu" }
@@ -302,6 +307,7 @@ fun HomeScreen(
                                             ReflectOption.MoodJournalHistory -> "mood_journal_history"
                                             ReflectOption.Assessments -> "library"
                                             ReflectOption.AnxietyJournal -> "anxiety_history"
+                                            ReflectOption.QuestHistory -> "quest_history"
                                         }
                                     },
                                     onProfileClick = openProfile,
@@ -349,6 +355,10 @@ fun HomeScreen(
                                 "mood_journal_history" -> MoodJournalHistoryScreen(
                                     onBack = { reflectNavigationState = "menu" },
                                     viewModel = reflectViewModel
+                                )
+                                "quest_history" -> QuestHistoryScreen(
+                                    onBack = { reflectNavigationState = "menu" },
+                                    reflectViewModel = reflectViewModel
                                 )
                             }
                         }
@@ -701,8 +711,8 @@ fun HomeContent(
         // ═══════════════════════════════════════════════════════════════════════
         
         SelfDiscoveryQuestCard(
-            progress = uiState?.questProgress?.completedCount ?: 0,
-            total = uiState?.questProgress?.totalRequired ?: 3,
+            progress = uiState?.questProgress?.completedSections?.size ?: 0,
+            total = 9, // 3 quests × 3 sections
             badgeEarned = uiState?.questProgress?.badgeEarned == true,
             onClick = onNavigateToSelfDiscoveryQuest
         )

@@ -50,7 +50,8 @@ enum class ReflectOption {
     MoodHistory,
     MoodJournalHistory,  // Track Your Mood detailed entries
     Assessments,
-    AnxietyJournal
+    AnxietyJournal,
+    QuestHistory
 }
 
 /**
@@ -120,6 +121,13 @@ fun ReflectMenuScreen(
             Icons.Default.Favorite,
             CalmingGreen,
             ReflectOption.AnxietyJournal
+        ),
+        ReflectOptionData(
+            "Quest Journey",
+            "View your self-discovery answers",
+            Icons.Default.Star,
+            CalmingPeach,
+            ReflectOption.QuestHistory
         )
     )
 

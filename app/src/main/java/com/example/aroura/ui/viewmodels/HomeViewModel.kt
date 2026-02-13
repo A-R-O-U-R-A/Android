@@ -9,10 +9,12 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.aroura.data.api.ApiClient
 import com.example.aroura.data.api.CompleteRoutineRequest
+import com.example.aroura.data.api.CompleteQuestSectionRequest
 import com.example.aroura.data.api.HomeMoodData
 import com.example.aroura.data.api.MoodJournalActivity
 import com.example.aroura.data.api.MoodJournalFeeling
 import com.example.aroura.data.api.QuestProgressData
+import com.example.aroura.data.api.QuestSectionAnswerData
 import com.example.aroura.data.api.ReflectApiService
 import com.example.aroura.data.api.SaveHomeMoodRequest
 import com.example.aroura.data.api.SaveMoodJournalRequest
@@ -394,6 +396,42 @@ class HomeViewModel(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Fetch quest progress error", e)
+            }
+        }
+    }
+    
+    fun completeQuestSection(
+        questId: String,
+        sectionId: String,
+        questTitle: String,
+        sectionTitle: String,
+        answers: List<QuestSectionAnswerData>,
+        onComplete: (Boolean) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            try {
+                val request = CompleteQuestSectionRequest(
+                    questId = questId,
+                    sectionId = sectionId,
+                    questTitle = questTitle,
+                    sectionTitle = sectionTitle,
+                    answers = answers
+                )
+                val response = reflectApi.completeQuestSection(request)
+                
+                if (response.isSuccessful && response.body()?.success == true) {
+                    _uiState.value = _uiState.value.copy(
+                        questProgress = response.body()!!.progress
+                    )
+                    onComplete(true)
+                    Log.d(TAG, "Quest section completed: $questId/$sectionId")
+                } else {
+                    onComplete(false)
+                    Log.e(TAG, "Quest section complete failed: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Complete quest section error", e)
+                onComplete(false)
             }
         }
     }

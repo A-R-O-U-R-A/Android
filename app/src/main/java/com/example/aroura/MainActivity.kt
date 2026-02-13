@@ -29,6 +29,7 @@ import com.example.aroura.ui.screens.calm.CalmAnxietyFlowScreen
 import com.example.aroura.ui.screens.mood.MoodJournalFlowScreen
 import com.example.aroura.ui.screens.QuizFlowScreen
 import com.example.aroura.ui.screens.quest.SelfDiscoveryQuestScreen
+import com.example.aroura.ui.screens.quest.QuestTestFlowScreen
 import com.example.aroura.ui.theme.ArouraTheme
 import com.example.aroura.ui.viewmodels.AuthViewModel
 import com.example.aroura.ui.viewmodels.AuthViewModelFactory
@@ -110,6 +111,8 @@ class MainActivity : ComponentActivity() {
                     // Determine initial screen based on onboarding and login status
                     var currentScreen by remember { mutableStateOf("loading") }
                     var currentQuizId by remember { mutableStateOf("") }
+                    var currentQuestId by remember { mutableStateOf("") }
+                    var currentSectionId by remember { mutableStateOf("") }
                     
                     // Update screen based on auth state
                     LaunchedEffect(hasCompletedOnboarding, isLoggedIn) {
@@ -221,15 +224,49 @@ class MainActivity : ComponentActivity() {
                                     currentScreen = "home"
                                 }
                             )
-                            "self_discovery_quest" -> SelfDiscoveryQuestScreen(
-                                onClose = { currentScreen = "home" },
-                                onStartTest = { questId, testId ->
-                                    // TODO: Navigate to specific test within quest
-                                    // For now, just show the test library
-                                    currentScreen = "home"
-                                },
-                                completedQuests = emptySet(), // TODO: Load from ViewModel
-                                completedTests = emptySet()    // TODO: Load from ViewModel
+                            "self_discovery_quest" -> {
+                                val uiState by homeViewModel.uiState.collectAsState()
+                                val questProgress = uiState.questProgress
+                                
+                                // Build completed sets from progress data
+                                val completedSections = remember(questProgress) {
+                                    questProgress?.completedSections?.map { it.sectionId }?.toSet() ?: emptySet()
+                                }
+                                val completedQuestIds = remember(questProgress) {
+                                    questProgress?.completedQuests?.map { it.questId }?.toSet() ?: emptySet()
+                                }
+                                
+                                SelfDiscoveryQuestScreen(
+                                    onClose = { currentScreen = "home" },
+                                    onStartTest = { questId, testId ->
+                                        currentQuestId = questId
+                                        currentSectionId = testId
+                                        currentScreen = "quest_test_flow"
+                                    },
+                                    completedQuests = completedQuestIds,
+                                    completedTests = completedSections
+                                )
+                            }
+                            "quest_test_flow" -> QuestTestFlowScreen(
+                                questId = currentQuestId,
+                                sectionId = currentSectionId,
+                                onClose = { currentScreen = "self_discovery_quest" },
+                                onComplete = { questId, sectionId, answers ->
+                                    // Find quest and section titles from data
+                                    val questInfo = com.example.aroura.data.QuestQuestionRepository.getQuestInfo(questId)
+                                    val sectionInfo = com.example.aroura.data.QuestQuestionRepository.getSectionInfo(questId, sectionId)
+                                    
+                                    homeViewModel.completeQuestSection(
+                                        questId = questId,
+                                        sectionId = sectionId,
+                                        questTitle = questInfo?.title ?: "",
+                                        sectionTitle = sectionInfo?.title ?: "",
+                                        answers = answers
+                                    ) { success ->
+                                        // Navigate back to quest screen after saving
+                                    }
+                                    currentScreen = "self_discovery_quest"
+                                }
                             )
                         }
                     }

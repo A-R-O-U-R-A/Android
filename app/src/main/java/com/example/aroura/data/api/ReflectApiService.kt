@@ -98,8 +98,11 @@ interface ReflectApiService {
     @GET("reflect/quest/progress")
     suspend fun getQuestProgress(): Response<QuestProgressResponse>
     
-    @POST("reflect/quest/complete-test")
-    suspend fun completeQuestTest(@Body request: CompleteQuestTestRequest): Response<QuestProgressResponse>
+    @POST("reflect/quest/complete-section")
+    suspend fun completeQuestSection(@Body request: CompleteQuestSectionRequest): Response<QuestProgressResponse>
+    
+    @GET("reflect/quest/answers")
+    suspend fun getQuestAnswers(): Response<QuestAnswersResponse>
     
     // ═══════════════════════════════════════════════════════════════════════════
     // Test Results
@@ -272,22 +275,26 @@ data class RoutineCompletionsResponse(
 )
 
 @Serializable
-data class CompletedTestData(
-    val testId: String,
-    val completedAt: String,
-    val resultId: String
+data class CompletedSectionData(
+    val questId: String,
+    val sectionId: String,
+    val completedAt: String? = null
+)
+
+@Serializable
+data class CompletedQuestData(
+    val questId: String,
+    val completedAt: String? = null
 )
 
 @Serializable
 data class QuestProgressData(
-    val completedCount: Int,
-    val totalRequired: Int,
-    val completedTests: List<CompletedTestData> = emptyList(),
+    val completedSections: List<CompletedSectionData> = emptyList(),
+    val completedQuests: List<CompletedQuestData> = emptyList(),
     val badgeEarned: Boolean = false,
     val badgeType: String? = null,
     val badgeEarnedAt: String? = null,
-    val newBadge: Boolean = false,
-    val message: String? = null
+    val newBadge: Boolean = false
 )
 
 @Serializable
@@ -297,9 +304,36 @@ data class QuestProgressResponse(
 )
 
 @Serializable
-data class CompleteQuestTestRequest(
-    val testId: String,
-    val resultId: String
+data class QuestSectionAnswerData(
+    val questionIndex: Int,
+    val questionText: String,
+    val answer: String
+)
+
+@Serializable
+data class CompleteQuestSectionRequest(
+    val questId: String,
+    val sectionId: String,
+    val questTitle: String = "",
+    val sectionTitle: String = "",
+    val answers: List<QuestSectionAnswerData>
+)
+
+@Serializable
+data class SavedQuestAnswerEntry(
+    val id: String,
+    val questId: String,
+    val sectionId: String,
+    val questTitle: String = "",
+    val sectionTitle: String = "",
+    val answers: List<QuestSectionAnswerData> = emptyList(),
+    val completedAt: String? = null
+)
+
+@Serializable
+data class QuestAnswersResponse(
+    val success: Boolean,
+    val answers: List<SavedQuestAnswerEntry> = emptyList()
 )
 
 @Serializable
